@@ -140,6 +140,46 @@
     }
     return res.json();
   }
+  /** Delete a bill from both local archive and GitHub. */
+  async function deleteBill(bill, settings) {
+    settings = settings || getSettings();
+
+    // ── Cloud first (safer: if this fails, bill stays intact) ──
+    if (cloudEnabled(settings)) {
+      const path = billPath(bill);
+      const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
+
+      // 1. Get SHA (required by GitHub DELETE)
+      const check = await fetch(url, { headers: await ghHeaders(settings) });
+      if (check.status === 404) {
+        // already gone from cloud — safe to clean local
+      } else if (!check.ok) {
+        throw new Error(`GitHub ${check.status} — cannot verify bill`);
+      } else {
+        const info = await check.json();
+        const res = await fetch(url, {
+          method: "DELETE",
+          headers: await ghHeaders(settings),
+          body: JSON.stringify({
+            message: `Delete bill ${bill.billNo}`,
+            sha: info.sha
+          })
+        });
+        if (!res.ok) {
+          let msg = `GitHub ${res.status}`;
+          try { const j = await res.json(); if (j.message) msg = j.message; } catch {}
+          throw new Error(msg);
+        }
+      }
+    }
+
+    // ── Local cleanup ──
+    const list = read(K.archive, []).filter(b => b.billNo !== bill.billNo);
+    write(K.archive, list);
+    removeFromOutbox(bill.billNo);
+
+    return { ok: true };
+  }
 
   async function flushOutbox(onProgress) {
     const settings = getSettings();
