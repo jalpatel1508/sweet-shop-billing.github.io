@@ -168,10 +168,10 @@
     let w = pw, h = w * ratio;
     if (h > ph) { h = ph; w = h / ratio; }
 
-    pdf.addImage(
+        pdf.addImage(
       canvas.toDataURL("image/jpeg", 0.94),
       "JPEG",
-      (pw - w) / 2, 0, w, h
+      0, 0, pw, ph           // full A5 portrait page — no shrinking
     );
     pdf.save(`Bill-${bill.billNo}.pdf`);
   }
