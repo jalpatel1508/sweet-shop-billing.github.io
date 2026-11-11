@@ -693,3 +693,24 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
     transition-duration:.01ms !important;
   }
 }
+/* ═══════════════════════════════════════════════════════════
+   V6 — Delete button in history actions
+   ═══════════════════════════════════════════════════════════ */
+.hr-actions .hr-delete-btn {
+  border: 1px solid #F0C9C5;
+  color: var(--danger);
+  background: transparent;
+  margin-left: auto;   /* push to far right, away from safe actions */
+}
+.hr-actions .hr-delete-btn:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+.hr-actions .hr-delete-btn:disabled {
+  opacity: .5;
+  pointer-events: none;
+}
+
+@media (max-width:600px){
+  .hr-actions .hr-delete-btn { margin-left: 0; }
+}
