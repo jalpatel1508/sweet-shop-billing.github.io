@@ -309,10 +309,18 @@
     toast(I18N.t("save"), "ok"); refreshSyncState();
     Store.flushOutbox().then(r => { if (r.ok) refreshSyncState(); });
   }
-  function applyShopToHeader() {
+    function applyShopToHeader() {
     const name = I18N.lang === "gu" ? (settings.shopGu || settings.shopEn) : (settings.shopEn || settings.shopGu);
     $("#shopNameDisplay").textContent = name || "Billing";
-    $("#brandMark").textContent = (name || "S").trim().charAt(0).toUpperCase();
+
+    // Circular logo in the header (falls back to shop-initial if image fails)
+    const brandMark = $("#brandMark");
+    const fallbackLetter = (name || "S").trim().charAt(0).toUpperCase();
+    const logoUrl = (settings.logoUrl || "").trim() || "1794383228911.png";
+    brandMark.innerHTML =
+      `<img src="${logoUrl}" alt="" class="brand-logo"` +
+      ` onerror="this.remove(); this.parentElement.textContent='${fallbackLetter}';">`;
+
     const meta = [I18N.lang === "gu" ? settings.shopEn : settings.shopGu, settings.phone].filter(Boolean).join(" · ") || "Billing";
     $("#shopMetaDisplay").textContent = meta;
     document.title = `${name || "Billing"}`;
