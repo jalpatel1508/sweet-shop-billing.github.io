@@ -1,0 +1,47 @@
+{
+  "billNo": "20261111-002",
+  "date": "2026-11-11",
+  "time": "14:29",
+  "customer": {
+    "name": "",
+    "phone": ""
+  },
+  "items": [
+    {
+      "itemId": 9,
+      "gu": "પીસ્તા બરફી",
+      "en": "Pista Barfi",
+      "grams": 500,
+      "weightLabel": "500 ગ્રામ",
+      "qty": 1,
+      "unitPrice": 260,
+      "amount": 260
+    },
+    {
+      "itemId": 12,
+      "gu": "મીક્ષ મિઠાઈ",
+      "en": "Mix Mithai",
+      "grams": 500,
+      "weightLabel": "500 ગ્રામ",
+      "qty": 1,
+      "unitPrice": 260,
+      "amount": 260
+    },
+    {
+      "itemId": 11,
+      "gu": "કેસર બરફી",
+      "en": "Kesar Barfi",
+      "grams": 500,
+      "weightLabel": "500 ગ્રામ",
+      "qty": 1,
+      "unitPrice": 260,
+      "amount": 260
+    }
+  ],
+  "subtotal": 780,
+  "discount": 0,
+  "total": 780,
+  "paymentMode": "Cash",
+  "createdAt": "2026-11-11T08:59:50.133Z",
+  "appVersion": "1.0.0"
+}
