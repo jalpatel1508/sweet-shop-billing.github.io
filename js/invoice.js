@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Invoice rendering + PDF + print (auto-height A5-width)
+   + generatePDFBlob / downloadBlob for cloud upload
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -147,27 +148,24 @@
 
   /* ── measure the rendered invoice and return mm height ─── */
   function measureHeightMm(el) {
-    // 96 CSS px = 1 inch = 25.4 mm
     const px = el.scrollHeight;
     const mm = px * 25.4 / 96;
-    // +2mm safety buffer so nothing gets clipped
     return Math.ceil(mm) + 2;
   }
 
   /* ═════════════════════════════════════════════════════════
-     PDF — auto-height, A5 width, portrait
+     NEW: generate PDF as a Blob (no download)
      ═════════════════════════════════════════════════════════ */
-  async function downloadPDF(bill, shop) {
+  async function generatePDFBlob(bill, shop) {
     if (!window.html2canvas || !window.jspdf) throw new Error("PDF library not loaded");
 
     const el = render(bill, shop);
     await fontsReady();
-    await new Promise(r => setTimeout(r, 60));   // let layout settle
+    await new Promise(r => setTimeout(r, 60));
 
     const A5_WIDTH_MM = 148;
     const heightMm = measureHeightMm(el);
 
-    // Very long bills → lower the pixel scale so the canvas never blows up
     const MAX_CANVAS_PX = 12000;
     const scale = Math.max(1.5, Math.min(3, MAX_CANVAS_PX / el.scrollHeight));
 
@@ -181,8 +179,6 @@
     });
 
     const { jsPDF } = window.jspdf;
-
-    // ── Custom page: 148mm wide × exact content height ───
     const pdf = new jsPDF({
       unit: "mm",
       format: [A5_WIDTH_MM, heightMm],
@@ -192,14 +188,31 @@
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
 
-    // Full-bleed image — fills the page exactly
-    pdf.addImage(
-      canvas.toDataURL("image/jpeg", 0.94),
-      "JPEG",
-      0, 0, pw, ph
-    );
+    pdf.addImage(canvas.toDataURL("image/jpeg", 0.94), "JPEG", 0, 0, pw, ph);
 
-    pdf.save(`Bill-${bill.billNo}.pdf`);
+    return pdf.output("blob");
+  }
+
+  /* ═════════════════════════════════════════════════════════
+     NEW: trigger a browser download for any Blob
+     ═════════════════════════════════════════════════════════ */
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1500);
+  }
+
+  /* ═════════════════════════════════════════════════════════
+     downloadPDF — now a thin wrapper over the two above
+     ═════════════════════════════════════════════════════════ */
+  async function downloadPDF(bill, shop) {
+    const blob = await generatePDFBlob(bill, shop);
+    downloadBlob(blob, `Bill-${bill.billNo}.pdf`);
   }
 
   /* ═════════════════════════════════════════════════════════
@@ -214,8 +227,6 @@
     const A5_WIDTH_MM = 148;
     const heightMm = measureHeightMm(el);
 
-    // Inject (or update) a dynamic @page rule.
-    // Because it's added AFTER styles.css, it wins in the cascade.
     let styleEl = document.getElementById("dynamic-print-page");
     if (!styleEl) {
       styleEl = document.createElement("style");
@@ -225,13 +236,13 @@
     styleEl.textContent =
       `@media print { @page { size: ${A5_WIDTH_MM}mm ${heightMm}mm; margin: 0; } }`;
 
-    // Two animation frames → ensures layout & @page recalc before print dialog opens
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
     window.print();
   }
 
   window.Invoice = {
-    buildHTML, render, downloadPDF, print, money, round2, amountInWords
+    buildHTML, render, downloadPDF, generatePDFBlob, downloadBlob,
+    print, money, round2, amountInWords
   };
 })();
