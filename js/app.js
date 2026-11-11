@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   App — bill tab, cart, tabs, i18n, save with PDF upload
+   App — auth flow, bill tab, cart, tabs, i18n
+   Save generates PDF silently (no auto-download) & uploads to cloud
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -50,6 +51,7 @@
     if (!state.billNo) state.billNo = Store.makeBillNo(state.date, Store.peekSeq(state.date));
   }
 
+  /* ═══════════ CART ═══════════ */
   function addToCart(itemId, grams) {
     const ex = state.cart.find(l => l.itemId === itemId && l.grams === grams);
     if (ex) ex.qty += 1;
@@ -99,6 +101,7 @@
     return state.cart.length > 0;
   }
 
+  /* ═══════════ CATALOG ═══════════ */
   function filteredItems() {
     const q = state.query.trim().toLowerCase();
     return SHOP_ITEMS.filter(it => {
@@ -141,6 +144,7 @@
     card.animate([{ transform: "scale(1)" }, { transform: "scale(1.035)" }, { transform: "scale(1)" }], { duration: 220, easing: "ease-out" });
   }
 
+  /* ═══════════ CART RENDER ═══════════ */
   function renderCart() {
     $("#cartLines").innerHTML = state.cart.map(l => {
       const it = ITEMS_BY_ID[l.itemId];
@@ -188,6 +192,7 @@
     $("#billNoLabel").textContent = "#" + state.billNo;
   }
 
+  /* ═══════════ BILL OBJECT ═══════════ */
   function buildBill() {
     const t = totals();
     const pay = computePayment();
@@ -205,10 +210,11 @@
       subtotal: t.subtotal, discount: t.discount, total: t.total,
       amountPaid: pay.paid, amountDue: pay.due,
       paymentStatus: pay.due === 0 ? "paid" : (pay.paid > 0 ? "partial" : "due"),
-      paymentMode: state.payment, createdAt: new Date().toISOString(), appVersion: "2.2.0"
+      paymentMode: state.payment, createdAt: new Date().toISOString(), appVersion: "2.3.0"
     };
   }
 
+  /* ═══════════ SAVE (no auto-download, silent PDF upload) ═══════════ */
   async function saveBill() {
     if (!state.cart.length) { toast("Cart is empty", "err"); return; }
     const btn = $("#btnSave"); btn.disabled = true;
@@ -218,14 +224,12 @@
       Store.archiveBill(bill);
       Store.commitSeq(state.date);
 
-      // Generate PDF once
+      // Generate PDF silently (used only for cloud upload)
       let pdfBlob = null;
       try { pdfBlob = await Invoice.generatePDFBlob(bill, settings); }
-      catch (e) { console.error("PDF generation failed:", e); toast("PDF failed (bill still saved)", "err"); }
+      catch (e) { console.error("PDF generation failed:", e); }
 
-   
-
-      // Cloud sync
+      // Cloud sync: JSON first, then PDF
       if (Store.cloudEnabled(settings)) {
         try {
           await Store.pushBill(bill, settings);
@@ -237,14 +241,18 @@
               console.warn("PDF upload failed:", pdfErr);
               toast(I18N.t("billSavedCloud") + " (PDF pending)", "info", 4200);
             }
-          } else toast(I18N.t("billSavedCloud"), "ok");
+          } else {
+            toast(I18N.t("billSavedCloud"), "ok");
+          }
           setSyncState("ok", "Cloud backup active");
         } catch (e) {
           Store.queueForCloud(bill);
           toast(I18N.t("cloudPending"), "info", 4200);
           setSyncState("pending", e.message);
         }
-      } else toast(I18N.t("billSaved"), "ok");
+      } else {
+        toast(I18N.t("billSaved"), "ok");
+      }
 
       clearBill(true); renderCatalog();
       if (state.activeTab === "history") HistoryView.render();
@@ -263,6 +271,7 @@
     catch { toast("Print failed", "err"); }
   }
 
+  /* ═══════════ TOAST ═══════════ */
   function toast(msg, type = "info", ms = 3200) {
     const stack = $("#toastStack");
     const el = document.createElement("div");
@@ -273,6 +282,7 @@
     setTimeout(() => { el.classList.add("is-out"); setTimeout(() => el.remove(), 220); }, ms);
   }
 
+  /* ═══════════ SYNC STATE ═══════════ */
   function setSyncState(s, title) {
     const dot = $("#syncDot"); dot.dataset.state = s; dot.title = title || s;
   }
@@ -283,6 +293,7 @@
     else setSyncState("ok", "Cloud active");
   }
 
+  /* ═══════════ TABS ═══════════ */
   function switchTab(tab) {
     state.activeTab = tab;
     $$("#mainTabs .tab").forEach(t => t.classList.toggle("is-active", t.dataset.tab === tab));
@@ -294,6 +305,7 @@
     if (tab === "summary") SummaryView.render();
   }
 
+  /* ═══════════ SETTINGS ═══════════ */
   function openSettings() {
     settings = Store.getSettings();
     $("#setShopGu").value = settings.shopGu; $("#setShopEn").value = settings.shopEn;
@@ -301,25 +313,36 @@
     $("#setGst").value = settings.gst; $("#setFooter").value = settings.footer;
     $("#setLogoUrl").value = settings.logoUrl || "";
     $("#setOwner").value = settings.owner; $("#setRepo").value = settings.repo;
-    $("#setToken").value = settings.token;
+    $("#setToken").value = ""; // never show the token — it's encrypted
     $("#settingsStatus").textContent = ""; $("#settingsStatus").className = "settings-status";
     $("#settingsModal").hidden = false;
     setTimeout(() => $("#setShopGu").focus(), 50);
   }
   function closeSettings() { $("#settingsModal").hidden = true; }
-  function saveSettingsFromForm() {
+
+  async function saveSettingsFromForm() {
+    const typedToken = $("#setToken").value.trim();
     settings = {
       shopGu: $("#setShopGu").value.trim(), shopEn: $("#setShopEn").value.trim(),
       address: $("#setAddress").value.trim(), phone: $("#setPhone").value.trim(),
       gst: $("#setGst").value.trim(), footer: $("#setFooter").value.trim(),
       logoUrl: $("#setLogoUrl").value.trim(),
       owner: $("#setOwner").value.trim(), repo: $("#setRepo").value.trim(),
-      token: $("#setToken").value.trim()
+      token: typedToken || settings.token // keep existing token if field blank
     };
-    Store.saveSettings(settings); applyShopToHeader(); closeSettings();
+
+    // If the user typed a new token, save it encrypted via Auth
+    if (typedToken && window.Auth && Auth.saveToken) {
+      try { await Auth.saveToken(typedToken); }
+      catch (e) { console.warn("Auth.saveToken failed:", e); }
+    }
+
+    Store.saveSettings(settings);
+    applyShopToHeader(); closeSettings();
     toast(I18N.t("save"), "ok"); refreshSyncState();
     Store.flushOutbox().then(r => { if (r.ok) refreshSyncState(); });
   }
+
   function applyShopToHeader() {
     const name = I18N.lang === "gu" ? (settings.shopGu || settings.shopEn) : (settings.shopEn || settings.shopGu);
     $("#shopNameDisplay").textContent = name || "Billing";
@@ -333,11 +356,18 @@
     $("#shopMetaDisplay").textContent = meta;
     document.title = `${name || "Billing"}`;
   }
+
   async function testCloud() {
     const st = $("#settingsStatus");
-    const draft = { owner: $("#setOwner").value.trim(), repo: $("#setRepo").value.trim(), token: $("#setToken").value.trim() };
+    const typedToken = $("#setToken").value.trim();
+    const draft = {
+      owner: $("#setOwner").value.trim(),
+      repo: $("#setRepo").value.trim(),
+      token: typedToken || settings.token
+    };
     if (!draft.owner || !draft.repo || !draft.token) {
-      st.textContent = "Fill all three fields"; st.className = "settings-status err"; return;
+      st.textContent = "Fill all three fields (or save the token first)";
+      st.className = "settings-status err"; return;
     }
     st.textContent = "Checking…"; st.className = "settings-status";
     try {
@@ -349,6 +379,7 @@
     }
   }
 
+  /* ═══════════ BIND ═══════════ */
   function bind() {
     $("#mainTabs").addEventListener("click", e => {
       const t = e.target.closest(".tab"); if (t) switchTab(t.dataset.tab);
@@ -430,6 +461,18 @@
     $$("#settingsModal [data-close]").forEach(el => el.addEventListener("click", closeSettings));
     $("#btnSaveSettings").addEventListener("click", saveSettingsFromForm);
     $("#btnTestCloud").addEventListener("click", testCloud);
+
+    // Logout
+    const logoutBtn = $("#btnLogout");
+    if (logoutBtn) {
+      logoutBtn.style.display = "";
+      logoutBtn.addEventListener("click", async () => {
+        if (!confirm("Sign out? Your saved GitHub token will be removed from this device.")) return;
+        try { await Auth.signOut(); } catch (e) { console.warn(e); }
+        location.reload();
+      });
+    }
+
     document.addEventListener("keydown", e => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
       if (e.key === "Escape") {
@@ -448,8 +491,92 @@
     });
   }
 
-  function boot() {
-    applyLanguage(); applyShopToHeader();
+  /* ═══════════ BOOT (with auth flow) ═══════════ */
+  async function boot() {
+    const authGate = document.getElementById("authGate");
+    const tokenSetup = document.getElementById("tokenSetup");
+    const mainHeader = document.getElementById("mainHeader");
+    const mainShell = document.getElementById("mainShell");
+
+    // Show auth gate, hide app until we know the state
+    if (authGate) authGate.style.display = "grid";
+    if (tokenSetup) tokenSetup.style.display = "none";
+    if (mainHeader) mainHeader.style.visibility = "hidden";
+    if (mainShell) mainShell.style.visibility = "hidden";
+
+    // Wait for Auth module (loaded via <script type="module">)
+    // If Auth doesn't exist (offline / blocked), fall back to old behavior
+    if (typeof window.Auth === "undefined") {
+      console.warn("Auth module not available — falling back to local-only mode");
+      if (authGate) authGate.style.display = "none";
+      if (mainHeader) mainHeader.style.visibility = "";
+      if (mainShell) mainShell.style.visibility = "";
+      settings = Store.getSettings();
+      startApp();
+      return;
+    }
+
+    // ── STEP 1: check Google login ──
+    let user = null;
+    try { user = await Auth.init(); }
+    catch (e) { console.error("Auth.init failed:", e); }
+
+    if (!user) {
+      // Not signed in → show Google login
+      document.getElementById("btnGoogleSignIn").onclick = async () => {
+        try {
+          document.getElementById("authError").textContent = "";
+          document.getElementById("btnGoogleSignIn").disabled = true;
+          await Auth.signIn();
+          location.reload();
+        } catch (err) {
+          document.getElementById("authError").textContent = err.message || "Sign-in failed";
+          document.getElementById("btnGoogleSignIn").disabled = false;
+        }
+      };
+      return; // wait for sign-in
+    }
+
+    // ── STEP 2: check GitHub token ──
+    if (!Auth.hasToken()) {
+      authGate.style.display = "none";
+      tokenSetup.style.display = "grid";
+      document.getElementById("btnSaveToken").onclick = async () => {
+        const raw = document.getElementById("setupTokenInput").value.trim();
+        if (!raw) {
+          document.getElementById("setupError").textContent = "Please paste a token.";
+          return;
+        }
+        try {
+          document.getElementById("setupError").textContent = "";
+          document.getElementById("btnSaveToken").disabled = true;
+          await Auth.saveToken(raw);
+          location.reload();
+        } catch (err) {
+          document.getElementById("setupError").textContent = err.message || "Save failed";
+          document.getElementById("btnSaveToken").disabled = false;
+        }
+      };
+      return; // wait for token
+    }
+
+    // ── STEP 3: everything ready → inject token & start app ──
+    Store.setRuntimeToken(Auth.getToken());
+    settings = Store.getSettings();
+
+    authGate.style.display = "none";
+    tokenSetup.style.display = "none";
+    if (mainHeader) mainHeader.style.visibility = "";
+    if (mainShell) mainShell.style.visibility = "";
+
+    startApp();
+  }
+
+  /* ═══════════ START APP (original boot logic) ═══════════ */
+  function startApp() {
+    applyLanguage();
+    applyShopToHeader();
+
     if (restoreDraft()) {
       $("#custName").value = state.customer.name;
       $("#custPhone").value = state.customer.phone;
