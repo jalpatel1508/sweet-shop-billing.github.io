@@ -1,31 +1,27 @@
 /* ═══════════════════════════════════════════════════════════
-   Storage layer + GitHub sync
+   Storage layer + GitHub sync (with SHA-based updates)
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
 
   const K = {
-    settings: "billing.settings.v1",
-    draft: "billing.draft.v1",
-    outbox: "billing.outbox.v1",
-    seq: "billing.seq.v1",
-    archive: "billing.archive.v2",   // bumped — bigger, prunes safely
-    lastSync: "billing.lastSync.v1"
+    settings: "billing.settings.v1", draft: "billing.draft.v1",
+    outbox: "billing.outbox.v1", seq: "billing.seq.v1",
+    archive: "billing.archive.v2", lastSync: "billing.lastSync.v1"
   };
   const ARCHIVE_MAX = 2000;
   const SYNC_TTL_MS = 5 * 60 * 1000;
 
   const DEFAULT_SETTINGS = {
     shopGu: "શ્રી સ્વીટ માર્ટ", shopEn: "Shree Sweet Mart",
-    address: "", phone: "", gst: "",
-    footer: "Thank you for your purchase!",
+    address: "", phone: "", gst: "", footer: "Thank you for your purchase!",
+    logoUrl: "1794383228911.png",
     owner: "", repo: "", token: ""
   };
 
   const read = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
   const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { console.error(e); return false; } };
 
-  /* ── settings ─────────────────────────────────────────── */
   const getSettings = () => Object.assign({}, DEFAULT_SETTINGS, read(K.settings, {}));
   const saveSettings = s => write(K.settings, s);
   const cloudEnabled = s => {
@@ -33,12 +29,10 @@
     return !!(s.owner && s.repo && s.token);
   };
 
-  /* ── draft ─────────────────────────────────────────────── */
   const getDraft = () => read(K.draft, null);
   const saveDraft = d => write(K.draft, d);
   const clearDraft = () => localStorage.removeItem(K.draft);
 
-  /* ── bill numbering ────────────────────────────────────── */
   const peekSeq = dateISO => ((read(K.seq, {}))[dateISO] || 0) + 1;
   const commitSeq = dateISO => {
     const m = read(K.seq, {}); m[dateISO] = (m[dateISO] || 0) + 1; write(K.seq, m);
@@ -47,7 +41,6 @@
   const makeBillNo = (dateISO, seq) =>
     `${dateISO.replace(/-/g, "")}-${String(seq).padStart(3, "0")}`;
 
-  /* ── archive ──────────────────────────────────────────── */
   const getArchive = () => read(K.archive, []);
   function archiveBill(bill) {
     let list = read(K.archive, []);
@@ -56,7 +49,6 @@
     else list.unshift(bill);
     if (list.length > ARCHIVE_MAX) list = list.slice(0, ARCHIVE_MAX);
     if (!write(K.archive, list)) {
-      // quota hit — drop oldest 500 and retry
       list = list.slice(0, Math.max(200, list.length - 500));
       write(K.archive, list);
     }
@@ -67,12 +59,10 @@
     for (const b of bills) if (!map.has(b.billNo)) map.set(b.billNo, b);
     const list = Array.from(map.values()).sort((a, b) =>
       (b.date + b.time).localeCompare(a.date + a.time));
-    const trimmed = list.slice(0, ARCHIVE_MAX);
-    write(K.archive, trimmed);
-    return trimmed;
+    write(K.archive, list.slice(0, ARCHIVE_MAX));
+    return list.slice(0, ARCHIVE_MAX);
   }
 
-  /* ── outbox ───────────────────────────────────────────── */
   function queueForCloud(bill) {
     const q = read(K.outbox, []);
     if (!q.some(b => b.billNo === bill.billNo)) q.push(bill);
@@ -83,7 +73,6 @@
   const removeFromOutbox = bn =>
     write(K.outbox, getOutbox().filter(b => b.billNo !== bn));
 
-  /* ── GitHub ───────────────────────────────────────────── */
   const utf8ToBase64 = str => {
     const bytes = new TextEncoder().encode(str);
     let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -102,13 +91,33 @@
     };
   }
 
-  async function githubPut(path, contentObj, message, settings) {
+  /** Push (create OR update) a bill. Handles SHA automatically. */
+  async function pushBill(bill, settings) {
     settings = settings || getSettings();
+    if (!cloudEnabled(settings)) throw new Error("Cloud backup not configured");
+    const path = billPath(bill);
     const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
+
+    // Check if exists to get SHA
+    let sha = null;
+    try {
+      const check = await fetch(url, { headers: await ghHeaders(settings) });
+      if (check.ok) {
+        const info = await check.json();
+        sha = info.sha;
+      }
+    } catch {}
+
+    const body = {
+      message: sha ? `Update ${bill.billNo}` : `Bill ${bill.billNo}`,
+      content: utf8ToBase64(JSON.stringify(bill, null, 2))
+    };
+    if (sha) body.sha = sha;
+
     const res = await fetch(url, {
       method: "PUT",
       headers: await ghHeaders(settings),
-      body: JSON.stringify({ message, content: utf8ToBase64(JSON.stringify(contentObj, null, 2)) })
+      body: JSON.stringify(body)
     });
     if (!res.ok) {
       let msg = `${res.status} ${res.statusText}`;
@@ -116,11 +125,6 @@
       throw new Error(msg);
     }
     return res.json();
-  }
-
-  async function pushBill(bill, settings) {
-    if (!cloudEnabled(settings)) throw new Error("Cloud backup not configured");
-    return githubPut(billPath(bill), bill, `Bill ${bill.billNo}`, settings);
   }
 
   async function testConnection(settings) {
@@ -151,7 +155,6 @@
     return { ok, failed: getOutbox().length };
   }
 
-  /* ── fetch all bills from GitHub ──────────────────────── */
   async function ghList(url, settings) {
     const res = await fetch(url, { headers: await ghHeaders(settings) });
     if (res.status === 404) return [];
@@ -165,23 +168,13 @@
     return res.json();
   }
 
-  /**
-   * Fetch all bills from GitHub. Shows progress via callback.
-   * @returns {Promise<Array>} array of bill objects
-   */
   async function fetchAllBills(onProgress) {
     const settings = getSettings();
     if (!cloudEnabled(settings)) throw new Error("Cloud backup not configured");
-
     const root = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents`;
     const years = await ghList(`${root}/bills`, settings);
     const yearFolders = years.filter(f => f.type === "dir");
-
-    const all = [];
-    let done = 0;
-    let total = 0;
-
-    // First pass: count files
+    const all = []; let done = 0; let total = 0;
     const monthFolders = [];
     for (const y of yearFolders) {
       const months = await ghList(`${root}/bills/${y.name}`, settings);
@@ -192,14 +185,10 @@
         monthFolders.push({ year: y.name, month: m.name, files: json });
       }
     }
-
-    // Second pass: download
     for (const mf of monthFolders) {
       for (const file of mf.files) {
-        try {
-          const bill = await fetchBillFromUrl(file.download_url);
-          all.push(bill);
-        } catch (e) { console.warn("skip", file.name, e); }
+        try { all.push(await fetchBillFromUrl(file.download_url)); }
+        catch (e) { console.warn("skip", file.name, e); }
         done++;
         if (onProgress) onProgress(done, total);
       }
@@ -208,10 +197,7 @@
     return all;
   }
 
-  const lastSyncAgo = () => {
-    const t = read(K.lastSync, 0);
-    return t ? Date.now() - t : Infinity;
-  };
+  const lastSyncAgo = () => { const t = read(K.lastSync, 0); return t ? Date.now() - t : Infinity; };
   const shouldSync = () => cloudEnabled() && lastSyncAgo() > SYNC_TTL_MS;
 
   window.Store = {
