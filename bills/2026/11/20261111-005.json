@@ -1,0 +1,30 @@
+{
+  "billNo": "20261111-005",
+  "date": "2026-11-11",
+  "time": "16:18",
+  "customer": {
+    "name": "",
+    "phone": ""
+  },
+  "items": [
+    {
+      "itemId": 12,
+      "gu": "મીક્ષ મિઠાઈ",
+      "en": "Mix Mithai",
+      "grams": 500,
+      "weightLabel": "500 g",
+      "qty": 5,
+      "unitPrice": 260,
+      "amount": 1300
+    }
+  ],
+  "subtotal": 1300,
+  "discount": 0,
+  "total": 1300,
+  "amountPaid": 700,
+  "amountDue": 600,
+  "paymentStatus": "partial",
+  "paymentMode": "UPI",
+  "createdAt": "2026-11-11T10:48:05.505Z",
+  "appVersion": "2.1.0"
+}
