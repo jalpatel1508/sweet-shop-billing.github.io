@@ -6,6 +6,7 @@
 
   const $ = s => document.querySelector(s);
   const money = Invoice.money;
+
   const todayISO = () => {
     const d = new Date(), p = n => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -54,7 +55,6 @@
     const { stats, byMonth, byCustomer } = aggregate(bills);
     const months = I18N.months();
 
-    // cards
     const cards = [
       { key: "todaySales", s: stats.today },
       { key: "weekSales", s: stats.week },
@@ -68,7 +68,6 @@
         <div class="meta">${I18N.t("billsFound", c.s.count)}</div>
       </div>`).join("");
 
-    // monthly table
     const sorted = Array.from(byMonth.entries()).sort((a, b) => b[0].localeCompare(a[0]));
     if (!sorted.length) {
       $("#monthlyTable").innerHTML = `<p class="empty-state" style="padding:20px;text-align:center;">${I18N.t("noData")}</p>`;
@@ -85,7 +84,6 @@
         }).join("")}`;
     }
 
-    // top customers
     const topCust = Array.from(byCustomer.values())
       .filter(c => c.name !== "Walk-in" || c.phone)
       .sort((a, b) => b.sales - a.sales).slice(0, 10);
