@@ -240,13 +240,13 @@
   const lastSyncAgo = () => { const t = read(K.lastSync, 0); return t ? Date.now() - t : Infinity; };
   const shouldSync = () => cloudEnabled() && lastSyncAgo() > SYNC_TTL_MS;
 
-  window.Store = {
+    window.Store = {
     getSettings, saveSettings, cloudEnabled,
     getDraft, saveDraft, clearDraft,
     peekSeq, commitSeq, makeBillNo,
     archiveBill, mergeArchive, getArchive,
     queueForCloud, getOutbox, removeFromOutbox, flushOutbox,
-    pushBill, testConnection, fetchAllBills,
+    pushBill, deleteBill, testConnection, fetchAllBills,
     shouldSync, lastSyncAgo, billPath
   };
 })();
