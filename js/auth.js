@@ -16,8 +16,8 @@ const firebaseConfig = {
   authDomain: "new-rahat-sanitary.firebaseapp.com",
   projectId: "new-rahat-sanitary",
   storageBucket: "new-rahat-sanitary.appspot.com",
-  messagingSenderId: "GET_FROM_FIREBASE",
-  appId: "GET_FROM_FIREBASE"
+  messagingSenderId: "30366197365",
+  appId: "1:30366197365:web:0b5a8cd1b660c79e1d7a3c"
 };
 
 /* ── 2. INITIALIZE ──────────────────────────────────────── */
