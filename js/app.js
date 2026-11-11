@@ -22,28 +22,35 @@
   const state = {
     cart: [], customer: { name: "", phone: "" },
     discount: 0, payment: "Cash", date: todayISO(), billNo: "",
-    cat: "all", query: "",
-    activeTab: "bill"
+    cat: "all", query: "", activeTab: "bill"
   };
   let settings = Store.getSettings();
 
-  /* ── pricing ──────────────────────────────────────────── */
   const unitPriceFor = (item, grams) =>
     item.p[grams] != null ? item.p[grams] : round2((item.p[1000] * grams) / 1000);
   const gramsLabel = g => (g >= 1000 && g % 1000 === 0) ? `${g / 1000} kg` : `${g} g`;
   const lineAmount = l => round2(unitPriceFor(ITEMS_BY_ID[l.itemId], l.grams) * l.qty);
+
   function totals() {
     const subtotal = round2(state.cart.reduce((s, l) => s + lineAmount(l), 0));
     const discount = Math.min(Math.max(0, Number(state.discount) || 0), subtotal);
     return { subtotal, discount, total: round2(subtotal - discount) };
   }
 
-  /* ── bill numbering ───────────────────────────────────── */
+  /** Compute paid / due from the amountPaid input (empty = fully paid). */
+  function computePayment() {
+    const t = totals();
+    const raw = String($("#amountPaid")?.value || "").trim();
+    let paid;
+    if (raw === "") paid = t.total;
+    else paid = Math.max(0, Math.min(t.total, Number(raw) || 0));
+    return { total: t.total, paid: round2(paid), due: round2(t.total - paid) };
+  }
+
   function ensureBillNo() {
     if (!state.billNo) state.billNo = Store.makeBillNo(state.date, Store.peekSeq(state.date));
   }
 
-  /* ── cart ─────────────────────────────────────────────── */
   function addToCart(itemId, grams) {
     const ex = state.cart.find(l => l.itemId === itemId && l.grams === grams);
     if (ex) ex.qty += 1;
@@ -68,15 +75,16 @@
     if (resetNo) state.billNo = "";
     Store.clearDraft(); renderCart();
     $("#custName").value = ""; $("#custPhone").value = ""; $("#discount").value = 0;
+    $("#amountPaid").value = "";
     $$("#payPills .pill").forEach(p => p.classList.toggle("is-active", p.dataset.pay === "Cash"));
     ensureBillNo(); renderBillMeta();
   }
 
-  /* ── draft ────────────────────────────────────────────── */
   function persistDraft() {
     Store.saveDraft({
       cart: state.cart, customer: state.customer, discount: state.discount,
-      payment: state.payment, date: state.date, billNo: state.billNo
+      payment: state.payment, date: state.date, billNo: state.billNo,
+      amountPaidRaw: $("#amountPaid")?.value || ""
     });
   }
   function restoreDraft() {
@@ -88,10 +96,10 @@
     state.payment = d.payment || "Cash";
     state.date = d.date || todayISO();
     state.billNo = d.billNo || "";
+    if (d.amountPaidRaw) $("#amountPaid").value = d.amountPaidRaw;
     return state.cart.length > 0;
   }
 
-  /* ── catalog ──────────────────────────────────────────── */
   function filteredItems() {
     const q = state.query.trim().toLowerCase();
     return SHOP_ITEMS.filter(it => {
@@ -134,7 +142,6 @@
     card.animate([{ transform: "scale(1)" }, { transform: "scale(1.035)" }, { transform: "scale(1)" }], { duration: 220, easing: "ease-out" });
   }
 
-  /* ── cart render ──────────────────────────────────────── */
   function renderCart() {
     $("#cartLines").innerHTML = state.cart.map(l => {
       const it = ITEMS_BY_ID[l.itemId];
@@ -155,6 +162,7 @@
       </li>`;
     }).join("");
     $("#cartEmpty").hidden = state.cart.length > 0;
+
     const t = totals();
     $("#subtotalVal").textContent = money(t.subtotal);
     $("#totalVal").textContent = money(t.total);
@@ -162,6 +170,17 @@
     const count = state.cart.reduce((s, l) => s + l.qty, 0);
     $("#cartCount").textContent = count;
     $("#cartTotalMini").textContent = money(t.total);
+
+    // Due display
+    const pay = computePayment();
+    const dueRow = $("#dueRow");
+    if (state.cart.length && pay.due > 0) {
+      dueRow.hidden = false;
+      $("#dueVal").textContent = money(pay.due);
+    } else {
+      dueRow.hidden = true;
+    }
+
     $$(".item-card").forEach(c => {
       const id = Number(c.dataset.item);
       c.classList.toggle("is-added", state.cart.some(l => l.itemId === id));
@@ -173,9 +192,9 @@
     $("#billNoLabel").textContent = "#" + state.billNo;
   }
 
-  /* ── bill object ──────────────────────────────────────── */
   function buildBill() {
     const t = totals();
+    const pay = computePayment();
     return {
       billNo: state.billNo, date: state.date, time: nowTime(),
       customer: { name: state.customer.name.trim(), phone: state.customer.phone.trim() },
@@ -188,11 +207,13 @@
         };
       }),
       subtotal: t.subtotal, discount: t.discount, total: t.total,
-      paymentMode: state.payment, createdAt: new Date().toISOString(), appVersion: "2.0.0"
+      amountPaid: pay.paid,
+      amountDue: pay.due,
+      paymentStatus: pay.due === 0 ? "paid" : (pay.paid > 0 ? "partial" : "due"),
+      paymentMode: state.payment, createdAt: new Date().toISOString(), appVersion: "2.1.0"
     };
   }
 
-  /* ── save ─────────────────────────────────────────────── */
   async function saveBill() {
     if (!state.cart.length) { toast("Cart is empty", "err"); return; }
     const btn = $("#btnSave"); btn.disabled = true;
@@ -231,7 +252,6 @@
     catch { toast("Print failed", "err"); }
   }
 
-  /* ── toast ────────────────────────────────────────────── */
   function toast(msg, type = "info", ms = 3200) {
     const stack = $("#toastStack");
     const el = document.createElement("div");
@@ -242,7 +262,6 @@
     setTimeout(() => { el.classList.add("is-out"); setTimeout(() => el.remove(), 220); }, ms);
   }
 
-  /* ── sync dot ─────────────────────────────────────────── */
   function setSyncState(s, title) {
     const dot = $("#syncDot"); dot.dataset.state = s; dot.title = title || s;
   }
@@ -253,7 +272,6 @@
     else setSyncState("ok", "Cloud active");
   }
 
-  /* ── tabs ─────────────────────────────────────────────── */
   function switchTab(tab) {
     state.activeTab = tab;
     $$("#mainTabs .tab").forEach(t => t.classList.toggle("is-active", t.dataset.tab === tab));
@@ -265,12 +283,12 @@
     if (tab === "summary") SummaryView.render();
   }
 
-  /* ── settings ─────────────────────────────────────────── */
   function openSettings() {
     settings = Store.getSettings();
     $("#setShopGu").value = settings.shopGu; $("#setShopEn").value = settings.shopEn;
     $("#setAddress").value = settings.address; $("#setPhone").value = settings.phone;
     $("#setGst").value = settings.gst; $("#setFooter").value = settings.footer;
+    $("#setLogoUrl").value = settings.logoUrl || "";
     $("#setOwner").value = settings.owner; $("#setRepo").value = settings.repo;
     $("#setToken").value = settings.token;
     $("#settingsStatus").textContent = ""; $("#settingsStatus").className = "settings-status";
@@ -283,6 +301,7 @@
       shopGu: $("#setShopGu").value.trim(), shopEn: $("#setShopEn").value.trim(),
       address: $("#setAddress").value.trim(), phone: $("#setPhone").value.trim(),
       gst: $("#setGst").value.trim(), footer: $("#setFooter").value.trim(),
+      logoUrl: $("#setLogoUrl").value.trim(),
       owner: $("#setOwner").value.trim(), repo: $("#setRepo").value.trim(),
       token: $("#setToken").value.trim()
     };
@@ -314,13 +333,10 @@
     }
   }
 
-  /* ── bind ─────────────────────────────────────────────── */
   function bind() {
-    // tabs
     $("#mainTabs").addEventListener("click", e => {
       const t = e.target.closest(".tab"); if (t) switchTab(t.dataset.tab);
     });
-    // language
     $("#langToggle").addEventListener("click", () => I18N.toggle());
     window.addEventListener("languagechange", () => {
       applyLanguage(); applyShopToHeader();
@@ -328,12 +344,10 @@
       if (state.activeTab === "history") HistoryView.render();
       if (state.activeTab === "summary") SummaryView.render();
     });
-    // catalog
     $("#itemGrid").addEventListener("click", e => {
       const b = e.target.closest("[data-add]");
       if (b) addToCart(Number(b.dataset.add), Number(b.dataset.grams));
     });
-    // search
     let t;
     $("#search").addEventListener("input", e => {
       clearTimeout(t);
@@ -343,14 +357,12 @@
     $("#searchClear").addEventListener("click", () => {
       $("#search").value = ""; state.query = ""; renderCatalog(); $("#search").focus();
     });
-    // category
     $("#catChips").addEventListener("click", e => {
       const c = e.target.closest(".chip"); if (!c) return;
       state.cat = c.dataset.cat;
       $$("#catChips .chip").forEach(x => x.classList.toggle("is-active", x === c));
       renderCatalog();
     });
-    // cart lines
     $("#cartLines").addEventListener("click", e => {
       const rm = e.target.closest("[data-remove]"); if (rm) return removeLine(rm.dataset.remove);
       const qb = e.target.closest("[data-qty]");
@@ -366,46 +378,46 @@
       if (e.target.matches("[data-qtyinput]") && e.target.value !== "")
         setLineQty(e.target.dataset.qtyinput, e.target.value);
     });
-    // customer
     $("#custName").addEventListener("input", e => { state.customer.name = e.target.value; persistDraft(); });
     $("#custPhone").addEventListener("input", e => {
       e.target.value = e.target.value.replace(/\D/g, "").slice(0, 10);
       state.customer.phone = e.target.value; persistDraft();
     });
-    // discount
     $("#discount").addEventListener("input", e => {
       state.discount = Number(e.target.value) || 0; persistDraft();
-      const tt = totals();
-      $("#subtotalVal").textContent = money(tt.subtotal);
-      $("#totalVal").textContent = money(tt.total);
-      $("#totalWords").textContent = Invoice.amountInWords(tt.total);
-      $("#cartTotalMini").textContent = money(tt.total);
+      renderCart();
     });
-    // payment
+    $("#amountPaid").addEventListener("input", () => {
+      persistDraft();
+      const pay = computePayment();
+      const dueRow = $("#dueRow");
+      if (state.cart.length && pay.due > 0) {
+        dueRow.hidden = false;
+        $("#dueVal").textContent = money(pay.due);
+      } else {
+        dueRow.hidden = true;
+      }
+    });
     $("#payPills").addEventListener("click", e => {
       const p = e.target.closest(".pill"); if (!p) return;
       state.payment = p.dataset.pay;
       $$("#payPills .pill").forEach(x => x.classList.toggle("is-active", x === p));
       persistDraft();
     });
-    // actions
     $("#btnSave").addEventListener("click", saveBill);
     $("#btnPrint").addEventListener("click", printBill);
     $("#btnClear").addEventListener("click", () => {
       if (state.cart.length && !confirm(I18N.t("clearCart"))) return;
       clearBill(true); renderCatalog();
     });
-    // mobile cart
     $("#cartToggle").addEventListener("click", () => {
       const open = $("#cart").classList.toggle("is-open");
       $("#cartToggle").setAttribute("aria-expanded", open);
     });
-    // settings
     $("#btnSettings").addEventListener("click", openSettings);
     $$("#settingsModal [data-close]").forEach(el => el.addEventListener("click", closeSettings));
     $("#btnSaveSettings").addEventListener("click", saveSettingsFromForm);
     $("#btnTestCloud").addEventListener("click", testCloud);
-    // keyboard
     document.addEventListener("keydown", e => {
       const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName);
       if (e.key === "Escape") {
@@ -419,7 +431,6 @@
       if (e.key === "2") switchTab("history");
       if (e.key === "3") switchTab("summary");
     });
-    // online
     window.addEventListener("online", () => {
       Store.flushOutbox().then(r => {
         if (r.ok) { refreshSyncState(); toast("Synced", "ok"); }
@@ -427,7 +438,6 @@
     });
   }
 
-  /* ── boot ─────────────────────────────────────────────── */
   function boot() {
     applyLanguage();
     applyShopToHeader();
