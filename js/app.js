@@ -223,11 +223,7 @@
       try { pdfBlob = await Invoice.generatePDFBlob(bill, settings); }
       catch (e) { console.error("PDF generation failed:", e); toast("PDF failed (bill still saved)", "err"); }
 
-      // Download for user
-      if (pdfBlob) {
-        try { Invoice.downloadBlob(pdfBlob, `Bill-${bill.billNo}.pdf`); }
-        catch (e) { console.warn("PDF download failed:", e); }
-      }
+   
 
       // Cloud sync
       if (Store.cloudEnabled(settings)) {
