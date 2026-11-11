@@ -14,3 +14,19 @@ Just open `index.html` in a browser. No server, no build step.
 
 ## Cloud backup (for the Telegram bot)
 1. Create a **private** repo `sweet-shop-bills`.
+2. GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate new token.
+   - Repository access: **Only select repositories** → `sweet-shop-bills`
+   - Permissions → **Contents: Read and write** (nothing else)
+   - Expiration: **No expiration**
+3. In the app → ⚙ Settings → fill username, repo, token → **Test connection** → Save.
+
+Bills land at `bills/YYYY/MM/YYYYMMDD-NNN.json`.
+
+## Keyboard shortcuts
+| Key | Action |
+|---|---|
+| `/` | Focus search |
+| `S` | Settings |
+| `P` | Print |
+| `Ctrl/⌘ + Enter` | Save bill |
+| `Esc` | Close modal / collapse cart |
