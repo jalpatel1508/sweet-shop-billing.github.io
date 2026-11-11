@@ -134,10 +134,11 @@
               <span>Total: <b>${money(bill.total)}</b></span>
               ${p.due > 0 ? `<span class="due-amount">Paid: ${money(p.paid)} · Due: <b>${money(p.due)}</b></span>` : `<span class="paid-amount">✓ Fully Paid</span>`}
             </div>
-            <div class="hr-actions">
+                        <div class="hr-actions">
               <button class="btn btn-outline btn-sm" data-action="pdf" data-bill="${bill.billNo}">${I18N.t("viewPdf")}</button>
               <button class="btn btn-outline btn-sm" data-action="print" data-bill="${bill.billNo}">${I18N.t("viewPrint")}</button>
               ${p.due > 0 ? `<button class="btn btn-primary btn-sm" data-action="pay" data-bill="${bill.billNo}">+ ${I18N.t("recordPayment")}</button>` : ""}
+              <button class="btn btn-danger-ghost btn-sm hr-delete-btn" data-action="delete" data-bill="${bill.billNo}">${I18N.t("deleteBill")}</button>
             </div>
           </div>` : ""}
       </div>`;
