@@ -20,13 +20,11 @@
       <p id="shopMetaDisplay">Billing</p>
     </div>
   </div>
-
   <nav class="main-tabs" id="mainTabs" role="tablist">
     <button class="tab is-active" data-tab="bill" data-i18n="tabBill">New Bill</button>
     <button class="tab" data-tab="history" data-i18n="tabHistory">Bills</button>
     <button class="tab" data-tab="summary" data-i18n="tabSummary">Summary</button>
   </nav>
-
   <div class="header-actions">
     <button class="lang-toggle" id="langToggle" aria-label="Toggle language">ગુ</button>
     <span class="sync-dot" id="syncDot" title="Cloud status"></span>
@@ -41,15 +39,12 @@
 
 <main class="app-shell">
 
-  <!-- ══════ TAB: BILL ══════ -->
-  <section class="tab-view" data-view="bill" data-active>
+  <section class="tab-view" data-view="bill">
     <div class="bill-layout">
       <section class="catalog" aria-label="Item catalog">
         <div class="toolbar">
           <div class="search-wrap">
-            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
-            </svg>
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
             <input id="search" type="search" data-i18n-ph="searchItems" placeholder="Search item…" autocomplete="off" spellcheck="false">
             <button class="search-clear" id="searchClear" hidden aria-label="Clear">✕</button>
           </div>
@@ -90,6 +85,14 @@
             </div>
             <div class="tot-row grand"><span data-i18n="total">Total</span><b id="totalVal">₹0</b></div>
             <div class="tot-words" id="totalWords"></div>
+            <div class="tot-row paid-row">
+              <span data-i18n="amountPaid">Amount Paid</span>
+              <div class="discount-input"><input id="amountPaid" type="number" min="0" step="1" placeholder="= Total" inputmode="decimal"><span>₹</span></div>
+            </div>
+            <div class="tot-row due-row" id="dueRow" hidden>
+              <span data-i18n="due">Due</span>
+              <b id="dueVal" class="due-amount">₹0</b>
+            </div>
           </div>
           <div class="pay-row">
             <span class="pay-label" data-i18n="payment">Payment</span>
@@ -102,15 +105,14 @@
           </div>
         </div>
         <div class="cart-foot">
-          <button class="btn btn-primary" id="btnSave" data-i18n="savePdf">Save + PDF</button>
-          <button class="btn btn-ghost" id="btnPrint" title="Print">🖨</button>
-          <button class="btn btn-ghost btn-danger-ghost" id="btnClear" title="Clear">✕</button>
+          <button class="btn btn-primary" id="btnSave" data-i18n="save">Save</button>
+          <button class="btn btn-outline" id="btnPrint" data-i18n="print">Print</button>
+          <button class="btn btn-ghost btn-danger-ghost btn-icon-sm" id="btnClear" title="Clear">✕</button>
         </div>
       </aside>
     </div>
   </section>
 
-  <!-- ══════ TAB: HISTORY ══════ -->
   <section class="tab-view" data-view="history" hidden>
     <div class="history-view">
       <div class="view-head">
@@ -119,9 +121,7 @@
       </div>
       <div class="history-toolbar">
         <div class="search-wrap">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
-          </svg>
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
           <input id="historySearch" type="search" data-i18n-ph="historySearch" placeholder="Search…" autocomplete="off">
         </div>
         <div class="chips" id="historyChips">
@@ -138,7 +138,6 @@
     </div>
   </section>
 
-  <!-- ══════ TAB: SUMMARY ══════ -->
   <section class="tab-view" data-view="summary" hidden>
     <div class="summary-view">
       <div class="view-head">
@@ -175,6 +174,7 @@
         <label class="field"><span>GSTIN</span><input id="setGst"></label>
       </div>
       <label class="field"><span>Bill footer</span><input id="setFooter"></label>
+      <label class="field"><span data-i18n="logoUrl">Logo URL</span><input id="setLogoUrl" placeholder="1794383228911.png"></label>
 
       <h3 class="section-label" data-i18n="cloudBackup">GitHub cloud backup</h3>
       <div class="field-grid">
@@ -188,6 +188,34 @@
     <div class="modal-foot">
       <button class="btn btn-ghost" data-close data-i18n="cancel">Cancel</button>
       <button class="btn btn-primary" id="btnSaveSettings" data-i18n="save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Record Payment modal -->
+<div class="modal" id="paymentModal" hidden>
+  <div class="modal-backdrop" data-close-pay></div>
+  <div class="modal-card" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 data-i18n="recordPayment">Record Payment</h2>
+      <button class="icon-btn" data-close-pay>✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="pay-info">
+        <div><span>Bill</span><b id="payBillNo">#—</b></div>
+        <div><span data-i18n="total">Total</span><b id="payTotal">₹0</b></div>
+        <div><span data-i18n="alreadyPaid">Already Paid</span><b id="payAlready">₹0</b></div>
+        <div><span data-i18n="due">Due</span><b id="payDue" class="due-amount">₹0</b></div>
+      </div>
+      <label class="field">
+        <span data-i18n="amountReceivedNow">Amount received now</span>
+        <input id="payAmount" type="number" min="0" step="1" inputmode="decimal" placeholder="0">
+      </label>
+      <button class="btn btn-outline btn-sm" id="btnPayFull" data-i18n="markFullyPaid">Mark as Fully Paid</button>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" data-close-pay data-i18n="cancel">Cancel</button>
+      <button class="btn btn-primary" id="btnPaySave" data-i18n="savePayment">Save Payment</button>
     </div>
   </div>
 </div>
