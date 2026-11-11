@@ -1,8 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Storage layer
-   - Settings      → localStorage
-   - Draft bill    → localStorage (survives reload/crash)
-   - Saved bills   → localStorage + GitHub (outbox retry)
+   Storage layer + GitHub sync
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -12,106 +9,106 @@
     draft: "billing.draft.v1",
     outbox: "billing.outbox.v1",
     seq: "billing.seq.v1",
-    archive: "billing.archive.v1" // local mirror of saved bills (last 500)
+    archive: "billing.archive.v2",   // bumped — bigger, prunes safely
+    lastSync: "billing.lastSync.v1"
   };
+  const ARCHIVE_MAX = 2000;
+  const SYNC_TTL_MS = 5 * 60 * 1000;
 
   const DEFAULT_SETTINGS = {
-    shopGu: "શ્રી સ્વીટ માર્ટ",
-    shopEn: "Shree Sweet Mart",
-    address: "",
-    phone: "",
-    gst: "",
-    footer: "મીઠાઈ ખરીદવા બદલ આભાર! · Thank you for your purchase",
-    owner: "",
-    repo: "",
-    token: ""
+    shopGu: "શ્રી સ્વીટ માર્ટ", shopEn: "Shree Sweet Mart",
+    address: "", phone: "", gst: "",
+    footer: "Thank you for your purchase!",
+    owner: "", repo: "", token: ""
   };
 
-  /* ── low-level ─────────────────────────────────────────── */
-  function read(key, fallback) {
-    try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-    catch { return fallback; }
-  }
-  function write(key, value) {
-    try { localStorage.setItem(key, JSON.stringify(value)); return true; }
-    catch (e) { console.error("localStorage write failed", e); return false; }
-  }
+  const read = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
+  const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { console.error(e); return false; } };
 
-  /* ── settings ──────────────────────────────────────────── */
-  function getSettings() { return Object.assign({}, DEFAULT_SETTINGS, read(K.settings, {})); }
-  function saveSettings(s) { write(K.settings, s); }
-  function cloudEnabled(s) {
+  /* ── settings ─────────────────────────────────────────── */
+  const getSettings = () => Object.assign({}, DEFAULT_SETTINGS, read(K.settings, {}));
+  const saveSettings = s => write(K.settings, s);
+  const cloudEnabled = s => {
     s = s || getSettings();
     return !!(s.owner && s.repo && s.token);
-  }
+  };
 
   /* ── draft ─────────────────────────────────────────────── */
-  function getDraft() { return read(K.draft, null); }
-  function saveDraft(d) { write(K.draft, d); }
-  function clearDraft() { localStorage.removeItem(K.draft); }
+  const getDraft = () => read(K.draft, null);
+  const saveDraft = d => write(K.draft, d);
+  const clearDraft = () => localStorage.removeItem(K.draft);
 
   /* ── bill numbering ────────────────────────────────────── */
-  /** Returns a stable sequence for a date, e.g. 2026-11-11 → 1,2,3… */
-  function peekSeq(dateISO) {
-    const map = read(K.seq, {});
-    return (map[dateISO] || 0) + 1;
-  }
-  function commitSeq(dateISO) {
-    const map = read(K.seq, {});
-    map[dateISO] = (map[dateISO] || 0) + 1;
-    write(K.seq, map);
-    return map[dateISO];
-  }
-  function makeBillNo(dateISO, seq) {
-    return `${dateISO.replace(/-/g, "")}-${String(seq).padStart(3, "0")}`;
-  }
+  const peekSeq = dateISO => ((read(K.seq, {}))[dateISO] || 0) + 1;
+  const commitSeq = dateISO => {
+    const m = read(K.seq, {}); m[dateISO] = (m[dateISO] || 0) + 1; write(K.seq, m);
+    return m[dateISO];
+  };
+  const makeBillNo = (dateISO, seq) =>
+    `${dateISO.replace(/-/g, "")}-${String(seq).padStart(3, "0")}`;
 
-  /* ── archive (local mirror) ────────────────────────────── */
+  /* ── archive ──────────────────────────────────────────── */
+  const getArchive = () => read(K.archive, []);
   function archiveBill(bill) {
-    const list = read(K.archive, []);
-    list.unshift(bill);
-    write(K.archive, list.slice(0, 500));
+    let list = read(K.archive, []);
+    const i = list.findIndex(b => b.billNo === bill.billNo);
+    if (i >= 0) list[i] = bill;
+    else list.unshift(bill);
+    if (list.length > ARCHIVE_MAX) list = list.slice(0, ARCHIVE_MAX);
+    if (!write(K.archive, list)) {
+      // quota hit — drop oldest 500 and retry
+      list = list.slice(0, Math.max(200, list.length - 500));
+      write(K.archive, list);
+    }
   }
-  function getArchive() { return read(K.archive, []); }
+  function mergeArchive(bills) {
+    const map = new Map();
+    for (const b of getArchive()) map.set(b.billNo, b);
+    for (const b of bills) if (!map.has(b.billNo)) map.set(b.billNo, b);
+    const list = Array.from(map.values()).sort((a, b) =>
+      (b.date + b.time).localeCompare(a.date + a.time));
+    const trimmed = list.slice(0, ARCHIVE_MAX);
+    write(K.archive, trimmed);
+    return trimmed;
+  }
 
-  /* ── outbox ────────────────────────────────────────────── */
+  /* ── outbox ───────────────────────────────────────────── */
   function queueForCloud(bill) {
     const q = read(K.outbox, []);
     if (!q.some(b => b.billNo === bill.billNo)) q.push(bill);
     write(K.outbox, q);
     return q.length;
   }
-  function getOutbox() { return read(K.outbox, []); }
-  function removeFromOutbox(billNo) {
-    write(K.outbox, getOutbox().filter(b => b.billNo !== billNo));
-  }
+  const getOutbox = () => read(K.outbox, []);
+  const removeFromOutbox = bn =>
+    write(K.outbox, getOutbox().filter(b => b.billNo !== bn));
 
-  /* ── GitHub API ────────────────────────────────────────── */
-  function utf8ToBase64(str) {
+  /* ── GitHub ───────────────────────────────────────────── */
+  const utf8ToBase64 = str => {
     const bytes = new TextEncoder().encode(str);
-    let bin = "";
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
     return btoa(bin);
-  }
-
-  function billPath(bill) {
+  };
+  const billPath = bill => {
     const [y, m] = bill.date.split("-");
     return `bills/${y}/${m}/${bill.billNo}.json`;
+  };
+
+  async function ghHeaders(settings) {
+    return {
+      Authorization: `Bearer ${settings.token}`,
+      Accept: "application/vnd.github+json",
+      "Content-Type": "application/json"
+    };
   }
 
   async function githubPut(path, contentObj, message, settings) {
+    settings = settings || getSettings();
     const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
     const res = await fetch(url, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${settings.token}`,
-        Accept: "application/vnd.github+json",
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        message,
-        content: utf8ToBase64(JSON.stringify(contentObj, null, 2))
-      })
+      headers: await ghHeaders(settings),
+      body: JSON.stringify({ message, content: utf8ToBase64(JSON.stringify(contentObj, null, 2)) })
     });
     if (!res.ok) {
       let msg = `${res.status} ${res.statusText}`;
@@ -121,24 +118,17 @@
     return res.json();
   }
 
-  /** Push a bill to GitHub. Throws on failure. */
   async function pushBill(bill, settings) {
-    settings = settings || getSettings();
     if (!cloudEnabled(settings)) throw new Error("Cloud backup not configured");
     return githubPut(billPath(bill), bill, `Bill ${bill.billNo}`, settings);
   }
 
-  /** Verify repo + token by reading the repo root. */
   async function testConnection(settings) {
     settings = settings || getSettings();
     if (!cloudEnabled(settings)) throw new Error("Fill username, repo and token first");
-    const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${settings.token}`,
-        Accept: "application/vnd.github+json"
-      }
-    });
+    const res = await fetch(
+      `https://api.github.com/repos/${settings.owner}/${settings.repo}`,
+      { headers: await ghHeaders(settings) });
     if (!res.ok) {
       let msg = `${res.status} ${res.statusText}`;
       try { const j = await res.json(); if (j.message) msg = j.message; } catch {}
@@ -147,34 +137,90 @@
     return res.json();
   }
 
-  /** Try to flush every queued bill. Returns {ok, failed}. */
   async function flushOutbox(onProgress) {
     const settings = getSettings();
     if (!cloudEnabled(settings)) return { ok: 0, failed: getOutbox().length };
-    const q = getOutbox();
-    let ok = 0;
+    const q = getOutbox(); let ok = 0;
     for (const bill of q) {
       try {
         await pushBill(bill, settings);
-        removeFromOutbox(bill.billNo);
-        ok++;
+        removeFromOutbox(bill.billNo); ok++;
         if (onProgress) onProgress(ok, q.length);
-      } catch (e) {
-        console.warn("outbox flush failed for", bill.billNo, e.message);
-        break; // stop on first failure (likely network/token issue)
-      }
+      } catch { break; }
     }
     return { ok, failed: getOutbox().length };
   }
 
-  /* ── expose ────────────────────────────────────────────── */
+  /* ── fetch all bills from GitHub ──────────────────────── */
+  async function ghList(url, settings) {
+    const res = await fetch(url, { headers: await ghHeaders(settings) });
+    if (res.status === 404) return [];
+    if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+    return res.json();
+  }
+
+  async function fetchBillFromUrl(url) {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${res.status}`);
+    return res.json();
+  }
+
+  /**
+   * Fetch all bills from GitHub. Shows progress via callback.
+   * @returns {Promise<Array>} array of bill objects
+   */
+  async function fetchAllBills(onProgress) {
+    const settings = getSettings();
+    if (!cloudEnabled(settings)) throw new Error("Cloud backup not configured");
+
+    const root = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents`;
+    const years = await ghList(`${root}/bills`, settings);
+    const yearFolders = years.filter(f => f.type === "dir");
+
+    const all = [];
+    let done = 0;
+    let total = 0;
+
+    // First pass: count files
+    const monthFolders = [];
+    for (const y of yearFolders) {
+      const months = await ghList(`${root}/bills/${y.name}`, settings);
+      for (const m of months.filter(f => f.type === "dir")) {
+        const files = await ghList(`${root}/bills/${y.name}/${m.name}`, settings);
+        const json = files.filter(f => f.name.endsWith(".json"));
+        total += json.length;
+        monthFolders.push({ year: y.name, month: m.name, files: json });
+      }
+    }
+
+    // Second pass: download
+    for (const mf of monthFolders) {
+      for (const file of mf.files) {
+        try {
+          const bill = await fetchBillFromUrl(file.download_url);
+          all.push(bill);
+        } catch (e) { console.warn("skip", file.name, e); }
+        done++;
+        if (onProgress) onProgress(done, total);
+      }
+    }
+    write(K.lastSync, Date.now());
+    return all;
+  }
+
+  const lastSyncAgo = () => {
+    const t = read(K.lastSync, 0);
+    return t ? Date.now() - t : Infinity;
+  };
+  const shouldSync = () => cloudEnabled() && lastSyncAgo() > SYNC_TTL_MS;
+
   window.Store = {
     getSettings, saveSettings, cloudEnabled,
     getDraft, saveDraft, clearDraft,
     peekSeq, commitSeq, makeBillNo,
-    archiveBill, getArchive,
+    archiveBill, mergeArchive, getArchive,
     queueForCloud, getOutbox, removeFromOutbox, flushOutbox,
-    pushBill, testConnection,
-    billPath
+    pushBill, testConnection, fetchAllBills,
+    shouldSync, lastSyncAgo, billPath
   };
 })();
