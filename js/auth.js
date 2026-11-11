@@ -17,7 +17,8 @@ const firebaseConfig = {
   projectId: "new-rahat-sanitary",
   storageBucket: "new-rahat-sanitary.firebasestorage.app",
   messagingSenderId: "30366197365",
-  appId: "1:30366197365:web:0b5a8cd1b660c79e1d7a3c"
+  appId: "1:30366197365:web:0b5a8cd1b660c79e1d7a3c",
+   measurementId: "G-J92BMR956V"
 };
 
 /* ── 2. INITIALIZE ──────────────────────────────────────── */
