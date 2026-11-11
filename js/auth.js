@@ -12,12 +12,12 @@ import {
 
 /* ── 1. YOUR FIREBASE CONFIG (PASTE HERE) ───────────────── */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBAyKDC-JGUYhrpfXryBEkhsj30y8YHTqw",
+  authDomain: "https://new-rahat-sanitary.firebaseapp.com",
+  projectId: "new-rahat-sanitary",
+  storageBucket: "https://new-rahat-sanitary.firebasestorage.app",
+  messagingSenderId: "30366197365",
+  appId: "1:30366197365:web:0b5a8cd1b660c79e1d7a3c"
 };
 
 /* ── 2. INITIALIZE ──────────────────────────────────────── */
