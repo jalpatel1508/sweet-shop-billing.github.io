@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   Sweet Shop Billing — styles.css (final, v3)
-   Tabs · History · Summary · Payment tracking · Logo
+   Sweet Shop Billing — styles.css (final, v4 · landscape)
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════ 1. TOKENS ═══════════════ */
@@ -83,7 +82,6 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 }
 .icon-btn:hover{ background:rgba(255,255,255,.18); }
 
-/* header tabs */
 .main-tabs{ display:flex; gap:4px; flex:1; justify-content:center; }
 .tab{
   padding:8px 16px; border-radius:var(--r-pill); border:1px solid transparent;
@@ -285,7 +283,6 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .tot-row.grand b{ font-size:22px; font-weight:700; color:var(--maroon); letter-spacing:-.02em; }
 .tot-words{ font-size:11px; color:var(--muted); font-style:italic; margin-top:3px; text-align:right; }
 
-/* payment rows in cart */
 .paid-row{ margin-top:2px; }
 .due-row{ margin-top:2px; padding-top:6px; border-top:1px dashed var(--line-soft); color:var(--danger); }
 .due-row span{ color:var(--danger); }
@@ -359,7 +356,6 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .settings-status.ok{ color:var(--success); }
 .settings-status.err{ color:var(--danger); }
 
-/* payment modal */
 .pay-info{
   display:grid; grid-template-columns:1fr 1fr; gap:10px;
   background:#FFFDF9; border:1px solid var(--line-soft);
@@ -391,67 +387,92 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .toast.err .toast-icon{ color:#FF8A80; }
 .toast.info .toast-icon{ color:#FFD37A; }
 
-/* ═══════════════ 11. INVOICE ═══════════════ */
+/* ═══════════════ 11. INVOICE (landscape) ═══════════════ */
 .invoice-stage{ position:fixed; left:-10000px; top:0; z-index:-1; pointer-events:none; }
+
 .inv{
-  width:559px; background:#fff; color:#241A16;
-  font-family:var(--font-body); font-size:11.5px; line-height:1.45;
-  padding:26px 28px 22px;
+  /* A5 landscape printable width: 210mm - 12mm margins = 198mm ≈ 748px */
+  width:740px;
+  background:#fff; color:#241A16;
+  font-family:var(--font-body); font-size:12px; line-height:1.45;
+  padding:24px 26px 20px;
 }
-.inv-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding-bottom:12px; border-bottom:2px solid var(--maroon); }
-.inv-head-left { display:flex; gap:14px; align-items:flex-start; min-width:0; }
-.inv-logo-wrap {
-  flex:none; width:64px; height:64px; border-radius:50%;
-  overflow:hidden; border:2px solid var(--maroon);
-  background:#fff; display:flex; align-items:center; justify-content:center;
+.inv-head{
+  display:flex; justify-content:space-between; align-items:flex-start;
+  gap:16px; padding-bottom:12px; border-bottom:2px solid var(--maroon);
 }
-.inv-logo { width:100%; height:100%; object-fit:cover; display:block; }
-.inv-shop{ font-family:var(--font-head); font-size:20px; font-weight:700; color:var(--maroon); line-height:1.15; }
-.inv-shop-en{ font-family:var(--font-body); font-size:11px; color:#7A6A60; letter-spacing:.06em; text-transform:uppercase; margin-top:2px; }
-.inv-sub{ font-size:10.5px; color:#6B5B51; margin-top:3px; max-width:320px; }
+.inv-head-left{ display:flex; gap:16px; align-items:flex-start; min-width:0; flex:1; }
+
+/* Circular logo (Telegram-style) — handles 2048×2048 PNG perfectly */
+.inv-logo-wrap{
+  flex:none;
+  width:72px; height:72px;
+  border-radius:50%;
+  overflow:hidden;
+  border:2px solid var(--maroon);
+  background:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 1px 3px rgba(36,26,22,.1);
+}
+.inv-logo{
+  width:100%; height:100%;
+  object-fit:cover;
+  object-position:center;
+  display:block;
+  image-rendering:auto;
+  -ms-interpolation-mode:bicubic;
+}
+
+.inv-shop{ font-family:var(--font-head); font-size:22px; font-weight:700; color:var(--maroon); line-height:1.15; }
+.inv-shop-en{ font-family:var(--font-body); font-size:11.5px; color:#7A6A60; letter-spacing:.06em; text-transform:uppercase; margin-top:2px; }
+.inv-sub{ font-size:11px; color:#6B5B51; margin-top:3px; max-width:480px; }
 .inv-badge{
   flex:none; padding:5px 13px; border-radius:4px; border:1.5px solid var(--gold);
   color:var(--maroon); font-weight:700; font-size:11px; letter-spacing:.16em;
+  align-self:flex-start;
 }
-.inv-meta{ display:flex; gap:22px; padding:10px 0; border-bottom:1px solid #EADFD2; }
+.inv-meta{ display:flex; gap:32px; padding:10px 0; border-bottom:1px solid #EADFD2; }
 .inv-meta div{ display:flex; flex-direction:column; gap:1px; }
 .inv-meta span{ font-size:9px; letter-spacing:.09em; text-transform:uppercase; color:#96867A; }
-.inv-meta b{ font-size:11.5px; font-variant-numeric:tabular-nums; }
-.inv-cust{ display:flex; align-items:baseline; gap:8px; padding:9px 0; font-size:11.5px; }
+.inv-meta b{ font-size:12px; font-variant-numeric:tabular-nums; }
+.inv-cust{ display:flex; align-items:baseline; gap:8px; padding:9px 0; font-size:12px; }
 .inv-cust > span{ font-size:9px; letter-spacing:.09em; text-transform:uppercase; color:#96867A; }
 .inv-cust b{ font-weight:600; }
 .inv-cust i{ font-style:normal; color:#6B5B51; font-size:11px; }
 
 .inv-table{ width:100%; border-collapse:collapse; margin-top:4px; }
 .inv-table thead th{
-  font-size:9px; letter-spacing:.08em; text-transform:uppercase; color:#fff;
-  background:var(--maroon); padding:7px 8px; text-align:left; font-weight:600;
+  font-size:9.5px; letter-spacing:.08em; text-transform:uppercase; color:#fff;
+  background:var(--maroon); padding:8px 10px; text-align:left; font-weight:600;
 }
 .inv-table thead th.num{ text-align:right; }
-.inv-table tbody td{ padding:6px 8px; border-bottom:1px solid #F1E8DD; vertical-align:top; }
+.inv-table tbody td{ padding:7px 10px; border-bottom:1px solid #F1E8DD; vertical-align:top; }
 .inv-table tbody td.num{ text-align:right; font-variant-numeric:tabular-nums; }
 .inv-table tbody tr:nth-child(even){ background:#FEFBF6; }
-.inv-item-gu{ font-family:var(--font-gu); font-size:11.5px; font-weight:600; }
-.inv-item-en{ font-size:9.5px; color:#8A7A6E; }
+.inv-item-gu{ font-family:var(--font-gu); font-size:12px; font-weight:600; }
+.inv-item-en{ font-size:10px; color:#8A7A6E; }
 
-.inv-totals{ margin-top:12px; margin-left:auto; width:250px; }
-.inv-totals .r{ display:flex; justify-content:space-between; padding:3px 0; font-size:11.5px; color:#5C4E45; }
+.inv-totals{ margin-top:14px; margin-left:auto; width:290px; }
+.inv-totals .r{ display:flex; justify-content:space-between; padding:3px 0; font-size:12px; color:#5C4E45; }
 .inv-totals .r b{ font-variant-numeric:tabular-nums; color:#241A16; }
 .inv-totals .r.grand{
   margin-top:6px; padding-top:8px; border-top:2px solid var(--maroon);
-  font-size:14px; font-weight:700; color:var(--maroon);
+  font-size:14.5px; font-weight:700; color:var(--maroon);
 }
-.inv-totals .r.grand b{ font-size:16px; color:var(--maroon); }
+.inv-totals .r.grand b{ font-size:17px; color:var(--maroon); }
 .inv-totals .r.due-line { color:#B3261E; font-weight:600; }
 .inv-totals .r.due-line b.due-amount { color:#B3261E; }
 .inv-totals .r.paid-line { color:var(--success); font-weight:600; }
 .inv-totals .r.paid-line b.paid-amount { color:var(--success); font-size:14px; }
-.inv-words{ margin-top:10px; font-size:10px; color:#6B5B51; text-align:right; }
+.inv-words{ margin-top:10px; font-size:10.5px; color:#6B5B51; text-align:right; }
 
-.inv-foot{ margin-top:18px; padding-top:10px; border-top:1px dashed #EADFD2; display:flex; justify-content:space-between; gap:16px; align-items:flex-end; }
-.inv-foot-note{ font-size:10px; color:#6B5B51; max-width:320px; line-height:1.55; }
-.inv-sign{ text-align:center; font-size:9.5px; color:#96867A; }
-.inv-sign::before{ content:""; display:block; width:110px; border-top:1px solid #D8C7B4; margin-bottom:4px; }
+.inv-foot{
+  margin-top:18px; padding-top:10px; border-top:1px dashed #EADFD2;
+  display:flex; justify-content:space-between; gap:16px; align-items:flex-end;
+}
+.inv-foot-note{ font-size:10.5px; color:#6B5B51; max-width:480px; line-height:1.55; }
+.inv-sign{ text-align:center; font-size:10px; color:#96867A; }
+.inv-sign::before{ content:""; display:block; width:120px; border-top:1px solid #D8C7B4; margin-bottom:4px; }
 
 /* ═══════════════ 12. HISTORY ═══════════════ */
 .history-view{ max-width:1100px; margin:0 auto; }
@@ -502,7 +523,6 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .hr-totals .paid-amount { color:var(--success); font-weight:600; }
 .hr-actions{ display:flex; gap:6px; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
 
-/* payment badge */
 .pay-badge {
   display:inline-flex; align-items:center; gap:3px;
   padding:2px 8px; border-radius:var(--r-pill);
@@ -572,16 +592,22 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 }
 @keyframes spin{ to{ transform:rotate(360deg);} }
 
-/* ═══════════════ 14. PRINT ═══════════════ */
+/* ═══════════════ 14. PRINT — A5 LANDSCAPE ═══════════════ */
 @media print{
-  @page{ size:A5 portrait; margin:6mm; }
+  @page{ size:A5 landscape; margin:6mm; }
   html,body{ background:#fff !important; margin:0 !important; padding:0 !important; }
   body > *:not(.invoice-stage){ display:none !important; }
   .invoice-stage{
     position:static !important; left:auto !important; top:auto !important;
     z-index:auto !important; pointer-events:auto !important;
+    width:100% !important;
   }
-  .inv{ width:100% !important; padding:0 !important; box-shadow:none !important; }
+  .inv{
+    width:100% !important;
+    max-width:100% !important;
+    padding:0 !important;
+    box-shadow:none !important;
+  }
   .inv-table tbody tr{ break-inside:avoid; }
   *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
@@ -662,8 +688,8 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
   .tc-row{ grid-template-columns:1fr auto; }
   .tc-row .bills{ display:none; }
 
-  .inv-logo-wrap { width:52px; height:52px; }
-  .inv-head-left { gap:10px; }
+  .inv-logo-wrap { width:60px; height:60px; }
+  .inv-head-left { gap:12px; }
   .cart-foot .btn-outline { min-width:76px; padding:0 12px; }
   .cart-foot .btn-icon-sm { width:44px; }
   .pay-info { grid-template-columns:1fr 1fr; }
