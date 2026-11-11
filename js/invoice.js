@@ -1,20 +1,17 @@
 /* ═══════════════════════════════════════════════════════════
-   Invoice rendering + PDF + print
+   Invoice rendering + PDF + print (with logo & payment)
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
 
-  /* ── money helpers ─────────────────────────────────────── */
   const round2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
   const money = n => "₹" + Number(round2(n)).toLocaleString("en-IN", {
     minimumFractionDigits: 0, maximumFractionDigits: 2
   });
 
-  /* ── Indian number → words ─────────────────────────────── */
   const ONES = ["","One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
     "Eleven","Twelve","Thirteen","Fourteen","Fifteen","Sixteen","Seventeen","Eighteen","Nineteen"];
   const TENS = ["","","Twenty","Thirty","Forty","Fifty","Sixty","Seventy","Eighty","Ninety"];
-
   function two(n){ return n < 20 ? ONES[n] : TENS[(n/10)|0] + (n % 10 ? " " + ONES[n % 10] : ""); }
   function three(n){
     const h = (n/100)|0, r = n % 100;
@@ -34,21 +31,18 @@
     return out.trim() + " Rupees Only";
   }
 
-  /* ── escape ────────────────────────────────────────────── */
   function esc(s) {
     return String(s == null ? "" : s)
       .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
       .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
   }
-
-  /* ── date / time format ────────────────────────────────── */
   function fmtDate(iso) {
     const [y, m, d] = iso.split("-");
     return `${d}-${m}-${y}`;
   }
 
-  /* ── invoice HTML ──────────────────────────────────────── */
   function buildHTML(bill, shop) {
+    const logo = shop.logoUrl ? `<img src="${esc(shop.logoUrl)}" alt="" class="inv-logo">` : "";
     const rows = bill.items.map((it, i) => `
       <tr>
         <td>${i + 1}</td>
@@ -62,8 +56,20 @@
         <td class="num">${money(it.amount)}</td>
       </tr>`).join("");
 
-    const discountRow = bill.discount > 0 ? `
-      <div class="r"><span>Discount</span><b>− ${money(bill.discount)}</b></div>` : "";
+    const discountRow = bill.discount > 0
+      ? `<div class="r"><span>Discount</span><b>− ${money(bill.discount)}</b></div>` : "";
+
+    // Payment breakdown
+    const paid = bill.amountPaid != null ? Number(bill.amountPaid) : bill.total;
+    const due  = bill.amountDue  != null ? Number(bill.amountDue)  : 0;
+    let paymentBlock = "";
+    if (due > 0) {
+      paymentBlock = `
+        <div class="r"><span>Paid</span><b>${money(paid)}</b></div>
+        <div class="r due-line"><span>Due</span><b class="due-amount">${money(due)}</b></div>`;
+    } else {
+      paymentBlock = `<div class="r paid-line"><span>Paid in Full</span><b class="paid-amount">✓</b></div>`;
+    }
 
     const custLine = bill.customer.name || bill.customer.phone ? `
       <div class="inv-cust">
@@ -74,12 +80,15 @@
 
     return `
       <div class="inv-head">
-        <div>
-          <div class="inv-shop">${esc(shop.shopGu || shop.shopEn)}</div>
-          ${shop.shopEn ? `<div class="inv-shop-en">${esc(shop.shopEn)}</div>` : ""}
-          ${shop.address ? `<div class="inv-sub">${esc(shop.address)}</div>` : ""}
-          ${shop.phone ? `<div class="inv-sub">Mob: ${esc(shop.phone)}</div>` : ""}
-          ${shop.gst ? `<div class="inv-sub">GSTIN: ${esc(shop.gst)}</div>` : ""}
+        <div class="inv-head-left">
+          ${logo ? `<div class="inv-logo-wrap">${logo}</div>` : ""}
+          <div>
+            <div class="inv-shop">${esc(shop.shopGu || shop.shopEn)}</div>
+            ${shop.shopEn ? `<div class="inv-shop-en">${esc(shop.shopEn)}</div>` : ""}
+            ${shop.address ? `<div class="inv-sub">${esc(shop.address)}</div>` : ""}
+            ${shop.phone ? `<div class="inv-sub">Mob: ${esc(shop.phone)}</div>` : ""}
+            ${shop.gst ? `<div class="inv-sub">GSTIN: ${esc(shop.gst)}</div>` : ""}
+          </div>
         </div>
         <div class="inv-badge">BILL</div>
       </div>
@@ -111,6 +120,7 @@
         <div class="r"><span>Subtotal</span><b>${money(bill.subtotal)}</b></div>
         ${discountRow}
         <div class="r grand"><span>કુલ / Total</span><b>${money(bill.total)}</b></div>
+        ${paymentBlock}
       </div>
       <div class="inv-words">${esc(amountInWords(bill.total))}</div>
 
@@ -120,14 +130,12 @@
       </div>`;
   }
 
-  /* ── render into the off-screen stage ──────────────────── */
   function render(bill, shop) {
     const el = document.getElementById("invoice");
     el.innerHTML = buildHTML(bill, shop);
     return el;
   }
 
-  /* ── fonts ready guard ─────────────────────────────────── */
   async function fontsReady() {
     try {
       await Promise.all([
@@ -136,47 +144,52 @@
         document.fonts.load("400 12px 'Inter'")
       ]);
       await document.fonts.ready;
-    } catch { /* ignore */ }
+    } catch {}
   }
 
-  /* ── PDF ───────────────────────────────────────────────── */
+  async function waitImages(root) {
+    const imgs = Array.from(root.querySelectorAll("img"));
+    await Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise(resolve => {
+        img.onload = resolve;
+        img.onerror = () => { img.style.display = "none"; resolve(); };
+        setTimeout(resolve, 3000);
+      });
+    }));
+  }
+
   async function downloadPDF(bill, shop) {
     if (!window.html2canvas || !window.jspdf) throw new Error("PDF library not loaded");
-
     const el = render(bill, shop);
     await fontsReady();
+    await waitImages(el);
 
     const canvas = await html2canvas(el, {
-      scale: 3,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
-      windowWidth: el.scrollWidth,
-      windowHeight: el.scrollHeight
+      scale: 3, backgroundColor: "#ffffff", useCORS: true, logging: false,
+      windowWidth: el.scrollWidth, windowHeight: el.scrollHeight
     });
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
-
     const ratio = canvas.height / canvas.width;
-    let w = pw;
-    let h = w * ratio;
+    let w = pw, h = w * ratio;
     if (h > ph) { h = ph; w = h / ratio; }
-
     pdf.addImage(canvas.toDataURL("image/jpeg", 0.94), "JPEG", (pw - w) / 2, 0, w, h);
     pdf.save(`Bill-${bill.billNo}.pdf`);
   }
 
-  /* ── print ─────────────────────────────────────────────── */
   async function print(bill, shop) {
     render(bill, shop);
     await fontsReady();
-    // give the browser a tick to lay out the invoice
+    await waitImages(document.getElementById("invoice"));
     await new Promise(r => setTimeout(r, 60));
     window.print();
   }
 
-  window.Invoice = { buildHTML, render, downloadPDF, print, money, round2, amountInWords };
+  window.Invoice = {
+    buildHTML, render, downloadPDF, print, money, round2, amountInWords
+  };
 })();
