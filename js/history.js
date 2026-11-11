@@ -168,7 +168,38 @@
     list.innerHTML = filtered.map(renderRow).join("");
     empty.hidden = filtered.length > 0;
   }
+  /* ── delete with confirmation ────────────────────────── */
+  async function handleDelete(billNo) {
+    const bill = Store.getArchive().find(b => b.billNo === billNo);
+    if (!bill) return;
 
+    const due = Number(bill.amountDue || 0);
+    const lines = [
+      I18N.t("confirmDelete"),
+      "",
+      `Bill #${bill.billNo}`,
+      `${bill.date}${bill.time ? " " + bill.time : ""}`,
+      bill.customer?.name ? `Customer: ${bill.customer.name}` : null,
+      `Total: ${money(bill.total)}`,
+      due > 0 ? `⚠️ Has ₹${due} due` : null
+    ].filter(Boolean).join("\n");
+
+    if (!confirm(lines)) return;
+
+    const btn = document.querySelector(`[data-action="delete"][data-bill="${billNo}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "…"; }
+
+    try {
+      await Store.deleteBill(bill, Store.getSettings());
+      state.expanded.delete(billNo);
+      renderList();
+      App.toast(I18N.t("billDeleted"), "ok");
+      App.refreshSyncState();
+    } catch (e) {
+      App.toast(`${I18N.t("deleteFailed")}: ${e.message}`, "err", 5000);
+      if (btn) { btn.disabled = false; btn.textContent = I18N.t("deleteBill"); }
+    }
+  }
   /* ── payment modal ────────────────────────────────────── */
   function openPaymentModal(billNo) {
     const bill = Store.getArchive().find(b => b.billNo === billNo);
