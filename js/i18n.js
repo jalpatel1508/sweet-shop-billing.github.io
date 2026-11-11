@@ -53,6 +53,10 @@
                "July","August","September","October","November","December"]
     },
     gu: {
+             deleteBill: "ડિલીટ",
+      confirmDelete: "આ બિલ ડિલીટ કરવું છે? આ પાછું નહીં આવે.",
+      billDeleted: "બિલ ડિલીટ થયું",
+      deleteFailed: "ડિલીટ નિષ્ફળ",
       tabBill: "નવું બિલ", tabHistory: "બિલ", tabSummary: "સારાંશ",
       searchItems: "વસ્તુ શોધો…", all: "બધું", mithai: "મિઠાઈ",
       farsan: "ફરસાણ", dryfruit: "ડ્રાયફ્રૂટ", noItems: "કોઈ વસ્તુ મળી નથી",
