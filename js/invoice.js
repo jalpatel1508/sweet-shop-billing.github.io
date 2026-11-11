@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Invoice rendering + PDF + print (landscape, 2048×2048 logo)
+   Invoice rendering + PDF + print (A5 portrait, no logo)
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -42,12 +42,6 @@
   }
 
   function buildHTML(bill, shop) {
-    // 2048×2048 PNG: loading=eager + decoding=sync ensure html2canvas
-    // never snapshots before the browser has finished decoding the bitmap.
-    const logo = shop.logoUrl
-      ? `<img src="${esc(shop.logoUrl)}" alt="" class="inv-logo" loading="eager" decoding="sync" width="2048" height="2048">`
-      : "";
-
     const rows = bill.items.map((it, i) => `
       <tr>
         <td>${i + 1}</td>
@@ -85,7 +79,6 @@
     return `
       <div class="inv-head">
         <div class="inv-head-left">
-          ${logo ? `<div class="inv-logo-wrap">${logo}</div>` : ""}
           <div>
             <div class="inv-shop">${esc(shop.shopGu || shop.shopEn)}</div>
             ${shop.shopEn ? `<div class="inv-shop-en">${esc(shop.shopEn)}</div>` : ""}
@@ -151,55 +144,34 @@
     } catch {}
   }
 
-  /** Wait for every <img> to finish loading AND decoding (critical for 2048×2048). */
-  async function waitImages(root) {
-    const imgs = Array.from(root.querySelectorAll("img"));
-    await Promise.all(imgs.map(img => {
-      const load = (img.complete && img.naturalWidth > 0)
-        ? Promise.resolve()
-        : new Promise(resolve => {
-            img.onload = resolve;
-            img.onerror = () => { img.style.display = "none"; resolve(); };
-            setTimeout(resolve, 4000);
-          });
-      // Also wait for decode so html2canvas can draw the 2048px bitmap.
-      const decode = (typeof img.decode === "function")
-        ? img.decode().catch(() => {})
-        : Promise.resolve();
-      return Promise.all([load, decode]);
-    }));
-  }
-
   async function downloadPDF(bill, shop) {
     if (!window.html2canvas || !window.jspdf) throw new Error("PDF library not loaded");
     const el = render(bill, shop);
     await fontsReady();
-    await waitImages(el);
 
     const canvas = await html2canvas(el, {
-      scale: 2.5,                 // 2.5 is plenty for print + keeps file small even with 2048px logo
+      scale: 3,
       backgroundColor: "#ffffff",
       useCORS: true,
-      allowTaint: false,
       logging: false,
       windowWidth: el.scrollWidth,
       windowHeight: el.scrollHeight
     });
 
     const { jsPDF } = window.jspdf;
-    // ── LANDSCAPE A5 ──────────────────────────────────────
-    const pdf = new jsPDF({ unit: "mm", format: "a5", orientation: "landscape" });
-    const pw = pdf.internal.pageSize.getWidth();   // ≈ 210 mm
-    const ph = pdf.internal.pageSize.getHeight();  // ≈ 148 mm
+    // ── A5 PORTRAIT ───────────────────────────────────────
+    const pdf = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
+    const pw = pdf.internal.pageSize.getWidth();   // ≈ 148 mm
+    const ph = pdf.internal.pageSize.getHeight();  // ≈ 210 mm
 
     const ratio = canvas.height / canvas.width;
     let w = pw, h = w * ratio;
     if (h > ph) { h = ph; w = h / ratio; }
 
     pdf.addImage(
-      canvas.toDataURL("image/jpeg", 0.92),
+      canvas.toDataURL("image/jpeg", 0.94),
       "JPEG",
-      (pw - w) / 2, (ph - h) / 2, w, h
+      (pw - w) / 2, 0, w, h
     );
     pdf.save(`Bill-${bill.billNo}.pdf`);
   }
@@ -207,7 +179,6 @@
   async function print(bill, shop) {
     render(bill, shop);
     await fontsReady();
-    await waitImages(document.getElementById("invoice"));
     await new Promise(r => setTimeout(r, 80));
     window.print();
   }
