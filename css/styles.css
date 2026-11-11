@@ -587,7 +587,7 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 
 /* ═══════════════ 14. PRINT — A5 PORTRAIT ═══════════════ */
 @media print{
-  @page{ size:A5 portrait; margin:6mm; }
+  @page{ size:A5 portrait; margin:0; }
   html,body{ background:#fff !important; margin:0 !important; padding:0 !important; }
   body > *:not(.invoice-stage){ display:none !important; }
   .invoice-stage{
