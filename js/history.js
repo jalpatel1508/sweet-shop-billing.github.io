@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Bills history + search + record payments
+   Bills history + search + payment recording + delete
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -7,6 +7,7 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
   const money = Invoice.money;
+
   const todayISO = () => {
     const d = new Date(), p = n => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
@@ -16,7 +17,6 @@
     const p = x => String(x).padStart(2, "0");
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
   };
-
   const state = { query: "", filter: "all", expanded: new Set() };
   let currentPayBill = null;
 
@@ -38,7 +38,6 @@
     if (q === "yesterday" || q === "ગઈકાલે") { const y = shiftDay(-1); return { type: "range", from: y, to: y }; }
     if (q === "week" || q === "this week" || q === "આ અઠવાડિયું") return { type: "range", from: weekStartISO(), to: todayISO() };
     if (q === "month" || q === "this month" || q === "આ મહિનો") return { type: "range", from: monthStartISO(), to: todayISO() };
-
     const dateMatch = q.match(/^(\d{1,4})[-\/](\d{1,2})(?:[-\/](\d{1,4}))?$/);
     if (dateMatch) {
       let [, a, b, c] = dateMatch;
@@ -47,8 +46,7 @@
         return { type: "range", from: `${c}-${b.padStart(2,"0")}-${a.padStart(2,"0")}`, to: `${c}-${b.padStart(2,"0")}-${a.padStart(2,"0")}` };
       }
       const year = new Date().getFullYear();
-      const dd = a.padStart(2, "0"), mm = b.padStart(2, "0");
-      return { type: "range", from: `${year}-${mm}-${dd}`, to: `${year}-${mm}-${dd}` };
+      return { type: "range", from: `${year}-${b.padStart(2,"0")}-${a.padStart(2,"0")}`, to: `${year}-${b.padStart(2,"0")}-${a.padStart(2,"0")}` };
     }
     const months = I18N.months().map(m => m.toLowerCase());
     for (let i = 0; i < months.length; i++) {
@@ -66,7 +64,6 @@
     else if (state.filter === "yesterday") out = out.filter(b => b.date === shiftDay(-1));
     else if (state.filter === "week") out = out.filter(b => b.date >= weekStartISO() && b.date <= todayISO());
     else if (state.filter === "month") out = out.filter(b => b.date >= monthStartISO() && b.date <= todayISO());
-
     const p = parseQuery(state.query);
     if (p.type === "range") out = out.filter(b => b.date >= p.from && b.date <= p.to);
     else if (p.type === "text") {
@@ -81,7 +78,6 @@
     return out;
   }
 
-  /** Payment status helpers with backward compat */
   function paymentOf(bill) {
     const paid = bill.amountPaid != null ? Number(bill.amountPaid) : Number(bill.total);
     const due  = bill.amountDue  != null ? Number(bill.amountDue)  : 0;
@@ -109,6 +105,7 @@
         </div>
         <div class="hr-item-amt">${money(it.amount)}</div>
       </li>`).join("");
+
     return `
       <div class="history-row${isOpen ? " expanded" : ""}" data-bill="${bill.billNo}">
         <div class="hr-head">
@@ -134,7 +131,7 @@
               <span>Total: <b>${money(bill.total)}</b></span>
               ${p.due > 0 ? `<span class="due-amount">Paid: ${money(p.paid)} · Due: <b>${money(p.due)}</b></span>` : `<span class="paid-amount">✓ Fully Paid</span>`}
             </div>
-                        <div class="hr-actions">
+            <div class="hr-actions">
               <button class="btn btn-outline btn-sm" data-action="pdf" data-bill="${bill.billNo}">${I18N.t("viewPdf")}</button>
               <button class="btn btn-outline btn-sm" data-action="print" data-bill="${bill.billNo}">${I18N.t("viewPrint")}</button>
               ${p.due > 0 ? `<button class="btn btn-primary btn-sm" data-action="pay" data-bill="${bill.billNo}">+ ${I18N.t("recordPayment")}</button>` : ""}
@@ -156,51 +153,16 @@
     const empty = $("#historyEmpty");
 
     const totalAmt = filtered.reduce((s, b) => s + b.total, 0);
-    const totalDue = filtered.reduce((s, b) => {
-      const p = paymentOf(b); return s + p.due;
-    }, 0);
-    let metaText = filtered.length
-      ? `${I18N.t("billsFound", filtered.length)} · ${money(totalAmt)}`
-      : "";
+    const totalDue = filtered.reduce((s, b) => { const p = paymentOf(b); return s + p.due; }, 0);
+    let metaText = filtered.length ? `${I18N.t("billsFound", filtered.length)} · ${money(totalAmt)}` : "";
     if (filtered.length && totalDue > 0) metaText += ` · ${I18N.t("due")}: ${money(totalDue)}`;
     meta.textContent = metaText;
 
     list.innerHTML = filtered.map(renderRow).join("");
     empty.hidden = filtered.length > 0;
   }
-  /* ── delete with confirmation ────────────────────────── */
-  async function handleDelete(billNo) {
-    const bill = Store.getArchive().find(b => b.billNo === billNo);
-    if (!bill) return;
 
-    const due = Number(bill.amountDue || 0);
-    const lines = [
-      I18N.t("confirmDelete"),
-      "",
-      `Bill #${bill.billNo}`,
-      `${bill.date}${bill.time ? " " + bill.time : ""}`,
-      bill.customer?.name ? `Customer: ${bill.customer.name}` : null,
-      `Total: ${money(bill.total)}`,
-      due > 0 ? `⚠️ Has ₹${due} due` : null
-    ].filter(Boolean).join("\n");
-
-    if (!confirm(lines)) return;
-
-    const btn = document.querySelector(`[data-action="delete"][data-bill="${billNo}"]`);
-    if (btn) { btn.disabled = true; btn.textContent = "…"; }
-
-    try {
-      await Store.deleteBill(bill, Store.getSettings());
-      state.expanded.delete(billNo);
-      renderList();
-      App.toast(I18N.t("billDeleted"), "ok");
-      App.refreshSyncState();
-    } catch (e) {
-      App.toast(`${I18N.t("deleteFailed")}: ${e.message}`, "err", 5000);
-      if (btn) { btn.disabled = false; btn.textContent = I18N.t("deleteBill"); }
-    }
-  }
-  /* ── payment modal ────────────────────────────────────── */
+  /* payment modal */
   function openPaymentModal(billNo) {
     const bill = Store.getArchive().find(b => b.billNo === billNo);
     if (!bill) return;
@@ -215,10 +177,7 @@
     $("#paymentModal").hidden = false;
     setTimeout(() => $("#payAmount").focus(), 50);
   }
-  function closePaymentModal() {
-    $("#paymentModal").hidden = true;
-    currentPayBill = null;
-  }
+  function closePaymentModal() { $("#paymentModal").hidden = true; currentPayBill = null; }
   async function savePayment() {
     if (!currentPayBill) return;
     const amt = Number($("#payAmount").value) || 0;
@@ -235,7 +194,6 @@
     bill.paymentStatus = newDue === 0 ? "paid" : (newPaid > 0 ? "partial" : "due");
     bill.payments = [...(bill.payments || []), { date: new Date().toISOString(), amount }];
     bill.updatedAt = new Date().toISOString();
-
     Store.archiveBill(bill);
 
     const settings = Store.getSettings();
@@ -247,11 +205,38 @@
         Store.queueForCloud(bill);
         App.toast(I18N.t("paymentRecorded") + " (cloud pending)", "info");
       }
-    } else {
-      App.toast(I18N.t("paymentRecorded"), "ok");
+    } else App.toast(I18N.t("paymentRecorded"), "ok");
+
+    renderList(); App.refreshSyncState();
+  }
+
+  /* delete */
+  async function handleDelete(billNo) {
+    const bill = Store.getArchive().find(b => b.billNo === billNo);
+    if (!bill) return;
+    const due = Number(bill.amountDue || 0);
+    const lines = [
+      I18N.t("confirmDelete"), "",
+      `Bill #${bill.billNo}`,
+      `${bill.date}${bill.time ? " " + bill.time : ""}`,
+      bill.customer?.name ? `Customer: ${bill.customer.name}` : null,
+      `Total: ${money(bill.total)}`,
+      due > 0 ? `⚠️ Has ₹${due} due` : null
+    ].filter(Boolean).join("\n");
+
+    if (!confirm(lines)) return;
+    const btn = document.querySelector(`[data-action="delete"][data-bill="${billNo}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = "…"; }
+    try {
+      await Store.deleteBill(bill, Store.getSettings());
+      state.expanded.delete(billNo);
+      renderList();
+      App.toast(I18N.t("billDeleted"), "ok");
+      App.refreshSyncState();
+    } catch (e) {
+      App.toast(`${I18N.t("deleteFailed")}: ${e.message}`, "err", 5000);
+      if (btn) { btn.disabled = false; btn.textContent = I18N.t("deleteBill"); }
     }
-    renderList();
-    App.refreshSyncState();
   }
 
   function bind() {
@@ -261,14 +246,12 @@
       clearTimeout(timer);
       timer = setTimeout(() => { state.query = e.target.value; renderList(); }, 130);
     });
-
     $("#historyChips").addEventListener("click", e => {
       const chip = e.target.closest(".chip"); if (!chip) return;
       state.filter = chip.dataset.filter;
       $$("#historyChips .chip").forEach(c => c.classList.toggle("is-active", c === chip));
       renderList();
     });
-
     $("#historyList").addEventListener("click", e => {
       const actionBtn = e.target.closest("[data-action]");
       if (actionBtn) {
@@ -276,7 +259,7 @@
         const bn = actionBtn.dataset.bill;
         const bill = Store.getArchive().find(b => b.billNo === bn);
         if (!bill) return;
-                const act = actionBtn.dataset.action;
+        const act = actionBtn.dataset.action;
         if (act === "pdf") Invoice.downloadPDF(bill, Store.getSettings());
         else if (act === "print") Invoice.print(bill, Store.getSettings());
         else if (act === "pay") openPaymentModal(bn);
@@ -288,10 +271,7 @@
       if (state.expanded.has(bn)) state.expanded.delete(bn); else state.expanded.add(bn);
       renderList();
     });
-
     $("#btnSyncCloud").addEventListener("click", syncCloud);
-
-    // payment modal
     $$("#paymentModal [data-close-pay]").forEach(el => el.addEventListener("click", closePaymentModal));
     $("#btnPaySave").addEventListener("click", savePayment);
     $("#btnPayFull").addEventListener("click", () => {
@@ -299,16 +279,12 @@
       const p = paymentOf(currentPayBill);
       $("#payAmount").value = p.due;
     });
-
     window.addEventListener("languagechange", renderList);
   }
 
   async function syncCloud() {
     const btn = $("#btnSyncCloud");
-    if (!Store.cloudEnabled()) {
-      App.toast("Configure GitHub in settings first", "err");
-      return;
-    }
+    if (!Store.cloudEnabled()) { App.toast("Configure GitHub in settings first", "err"); return; }
     btn.disabled = true;
     const original = btn.textContent;
     btn.innerHTML = `<span class="spinner"></span>${I18N.t("syncing")}`;
@@ -323,11 +299,9 @@
     } catch (e) {
       App.toast(`${I18N.t("syncFailed")}: ${e.message}`, "err", 5000);
     } finally {
-      btn.disabled = false;
-      btn.textContent = original;
+      btn.disabled = false; btn.textContent = original;
     }
   }
-
   async function maybeAutoSync() {
     if (!Store.shouldSync()) return;
     try {
