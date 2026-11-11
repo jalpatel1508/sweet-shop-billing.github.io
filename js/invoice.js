@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Invoice rendering + PDF + print (A5 portrait, no logo)
+   Invoice rendering + PDF + print (auto-height A5-width)
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -41,6 +41,7 @@
     return `${d}-${m}-${y}`;
   }
 
+  /* ── invoice HTML (unchanged, no logo) ─────────────────── */
   function buildHTML(bill, shop) {
     const rows = bill.items.map((it, i) => `
       <tr>
@@ -144,13 +145,34 @@
     } catch {}
   }
 
+  /* ── measure the rendered invoice and return mm height ─── */
+  function measureHeightMm(el) {
+    // 96 CSS px = 1 inch = 25.4 mm
+    const px = el.scrollHeight;
+    const mm = px * 25.4 / 96;
+    // +2mm safety buffer so nothing gets clipped
+    return Math.ceil(mm) + 2;
+  }
+
+  /* ═════════════════════════════════════════════════════════
+     PDF — auto-height, A5 width, portrait
+     ═════════════════════════════════════════════════════════ */
   async function downloadPDF(bill, shop) {
     if (!window.html2canvas || !window.jspdf) throw new Error("PDF library not loaded");
+
     const el = render(bill, shop);
     await fontsReady();
+    await new Promise(r => setTimeout(r, 60));   // let layout settle
+
+    const A5_WIDTH_MM = 148;
+    const heightMm = measureHeightMm(el);
+
+    // Very long bills → lower the pixel scale so the canvas never blows up
+    const MAX_CANVAS_PX = 12000;
+    const scale = Math.max(1.5, Math.min(3, MAX_CANVAS_PX / el.scrollHeight));
 
     const canvas = await html2canvas(el, {
-      scale: 3,
+      scale,
       backgroundColor: "#ffffff",
       useCORS: true,
       logging: false,
@@ -159,27 +181,53 @@
     });
 
     const { jsPDF } = window.jspdf;
-    // ── A5 PORTRAIT ───────────────────────────────────────
-    const pdf = new jsPDF({ unit: "mm", format: "a5", orientation: "portrait" });
-    const pw = pdf.internal.pageSize.getWidth();   // ≈ 148 mm
-    const ph = pdf.internal.pageSize.getHeight();  // ≈ 210 mm
 
-    const ratio = canvas.height / canvas.width;
-    let w = pw, h = w * ratio;
-    if (h > ph) { h = ph; w = h / ratio; }
+    // ── Custom page: 148mm wide × exact content height ───
+    const pdf = new jsPDF({
+      unit: "mm",
+      format: [A5_WIDTH_MM, heightMm],
+      orientation: "portrait"
+    });
 
-        pdf.addImage(
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+
+    // Full-bleed image — fills the page exactly
+    pdf.addImage(
       canvas.toDataURL("image/jpeg", 0.94),
       "JPEG",
-      0, 0, pw, ph           // full A5 portrait page — no shrinking
+      0, 0, pw, ph
     );
+
     pdf.save(`Bill-${bill.billNo}.pdf`);
   }
 
+  /* ═════════════════════════════════════════════════════════
+     PRINT — auto-height via dynamically injected @page
+     ═════════════════════════════════════════════════════════ */
   async function print(bill, shop) {
     render(bill, shop);
     await fontsReady();
     await new Promise(r => setTimeout(r, 80));
+
+    const el = document.getElementById("invoice");
+    const A5_WIDTH_MM = 148;
+    const heightMm = measureHeightMm(el);
+
+    // Inject (or update) a dynamic @page rule.
+    // Because it's added AFTER styles.css, it wins in the cascade.
+    let styleEl = document.getElementById("dynamic-print-page");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "dynamic-print-page";
+      document.head.appendChild(styleEl);
+    }
+    styleEl.textContent =
+      `@media print { @page { size: ${A5_WIDTH_MM}mm ${heightMm}mm; margin: 0; } }`;
+
+    // Two animation frames → ensures layout & @page recalc before print dialog opens
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
     window.print();
   }
 
