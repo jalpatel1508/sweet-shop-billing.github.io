@@ -6,6 +6,10 @@
 
   const STRINGS = {
     en: {
+             deleteBill: "Delete",
+      confirmDelete: "Delete this bill? This cannot be undone.",
+      billDeleted: "Bill deleted",
+      deleteFailed: "Delete failed",
       tabBill: "New Bill", tabHistory: "Bills", tabSummary: "Summary",
       searchItems: "Search item…", all: "All", mithai: "Mithai",
       farsan: "Farsan", dryfruit: "Dryfruit", noItems: "No items found",
