@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
-   Sweet Shop Billing — styles.css (final, v2)
+   Sweet Shop Billing — styles.css (final, v3)
+   Tabs · History · Summary · Payment tracking · Logo
    ═══════════════════════════════════════════════════════════════ */
 
 /* ═══════════════ 1. TOKENS ═══════════════ */
@@ -98,9 +99,7 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .lang-toggle:hover{ background:rgba(255,255,255,.18); }
 
 /* ═══════════════ 4. SHELL & TABS ═══════════════ */
-.app-shell{
-  max-width:1440px; margin:0 auto; padding:16px;
-}
+.app-shell{ max-width:1440px; margin:0 auto; padding:16px; }
 .tab-view[hidden]{ display:none !important; }
 .bill-layout{
   display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:20px; align-items:start;
@@ -129,7 +128,6 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
   width:30px; height:30px; border:0; border-radius:50%;
   background:var(--line-soft); color:var(--muted); font-size:13px;
 }
-
 .chips{ display:flex; gap:8px; margin-top:12px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
 .chips::-webkit-scrollbar{ display:none; }
 .chip{
@@ -287,6 +285,12 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .tot-row.grand b{ font-size:22px; font-weight:700; color:var(--maroon); letter-spacing:-.02em; }
 .tot-words{ font-size:11px; color:var(--muted); font-style:italic; margin-top:3px; text-align:right; }
 
+/* payment rows in cart */
+.paid-row{ margin-top:2px; }
+.due-row{ margin-top:2px; padding-top:6px; border-top:1px dashed var(--line-soft); color:var(--danger); }
+.due-row span{ color:var(--danger); }
+.due-amount{ color:var(--danger) !important; font-weight:700; }
+
 .pay-row{ display:flex; align-items:center; gap:10px; margin-top:14px; flex-wrap:wrap; }
 .pay-label{ font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); }
 .pay-pills{ display:flex; gap:5px; flex-wrap:wrap; }
@@ -298,6 +302,9 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .pill.is-active{ background:var(--maroon-soft); border-color:#E0BFBF; color:var(--maroon); font-weight:600; }
 
 .cart-foot{ display:flex; gap:8px; padding:12px 16px 14px; border-top:1px solid var(--line); background:#FFFDF9; }
+.cart-foot .btn-primary { flex:1; }
+.cart-foot .btn-outline { flex:0 0 auto; min-width:96px; }
+.btn-icon-sm { width:44px; padding:0; flex:0 0 auto; }
 
 /* ═══════════════ 8. BUTTONS ═══════════════ */
 .btn{
@@ -352,6 +359,18 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .settings-status.ok{ color:var(--success); }
 .settings-status.err{ color:var(--danger); }
 
+/* payment modal */
+.pay-info{
+  display:grid; grid-template-columns:1fr 1fr; gap:10px;
+  background:#FFFDF9; border:1px solid var(--line-soft);
+  border-radius:var(--r-sm); padding:12px 14px; margin-bottom:14px;
+}
+.pay-info > div{ display:flex; flex-direction:column; gap:2px; }
+.pay-info span{ font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600; }
+.pay-info b{ font-size:15px; font-variant-numeric:tabular-nums; color:var(--ink); }
+.pay-info b.due-amount{ color:var(--danger); }
+#btnPayFull{ margin-top:6px; }
+
 /* ═══════════════ 10. TOASTS ═══════════════ */
 .toast-stack{
   position:fixed; z-index:300; bottom:calc(16px + env(safe-area-inset-bottom)); left:50%;
@@ -373,17 +392,20 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .toast.info .toast-icon{ color:#FFD37A; }
 
 /* ═══════════════ 11. INVOICE ═══════════════ */
-.invoice-stage{
-  position:fixed; left:-10000px; top:0; z-index:-1;
-  pointer-events:none;
-}
+.invoice-stage{ position:fixed; left:-10000px; top:0; z-index:-1; pointer-events:none; }
 .inv{
-  width:559px;
-  background:#fff; color:#241A16;
+  width:559px; background:#fff; color:#241A16;
   font-family:var(--font-body); font-size:11.5px; line-height:1.45;
   padding:26px 28px 22px;
 }
 .inv-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:16px; padding-bottom:12px; border-bottom:2px solid var(--maroon); }
+.inv-head-left { display:flex; gap:14px; align-items:flex-start; min-width:0; }
+.inv-logo-wrap {
+  flex:none; width:64px; height:64px; border-radius:50%;
+  overflow:hidden; border:2px solid var(--maroon);
+  background:#fff; display:flex; align-items:center; justify-content:center;
+}
+.inv-logo { width:100%; height:100%; object-fit:cover; display:block; }
 .inv-shop{ font-family:var(--font-head); font-size:20px; font-weight:700; color:var(--maroon); line-height:1.15; }
 .inv-shop-en{ font-family:var(--font-body); font-size:11px; color:#7A6A60; letter-spacing:.06em; text-transform:uppercase; margin-top:2px; }
 .inv-sub{ font-size:10.5px; color:#6B5B51; margin-top:3px; max-width:320px; }
@@ -420,6 +442,10 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
   font-size:14px; font-weight:700; color:var(--maroon);
 }
 .inv-totals .r.grand b{ font-size:16px; color:var(--maroon); }
+.inv-totals .r.due-line { color:#B3261E; font-weight:600; }
+.inv-totals .r.due-line b.due-amount { color:#B3261E; }
+.inv-totals .r.paid-line { color:var(--success); font-weight:600; }
+.inv-totals .r.paid-line b.paid-amount { color:var(--success); font-size:14px; }
 .inv-words{ margin-top:10px; font-size:10px; color:#6B5B51; text-align:right; }
 
 .inv-foot{ margin-top:18px; padding-top:10px; border-top:1px dashed #EADFD2; display:flex; justify-content:space-between; gap:16px; align-items:flex-end; }
@@ -448,7 +474,7 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
   padding:12px 16px; cursor:pointer; user-select:none;
   align-items:center;
 }
-.hr-top{ display:flex; align-items:baseline; gap:10px; min-width:0; }
+.hr-top{ display:flex; align-items:baseline; gap:10px; min-width:0; flex-wrap:wrap; }
 .hr-bill{ font-size:11.5px; font-weight:600; color:var(--muted); font-variant-numeric:tabular-nums; letter-spacing:.02em; }
 .hr-date{ font-size:12.5px; color:var(--muted); }
 .hr-amount{ font-size:16px; font-weight:700; color:var(--maroon); font-variant-numeric:tabular-nums; text-align:right; }
@@ -470,9 +496,22 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 .hr-item-name b{ font-weight:600; }
 .hr-item-name span{ color:var(--muted); font-size:11.5px; }
 .hr-item-amt{ font-weight:600; font-variant-numeric:tabular-nums; }
-.hr-totals{ display:flex; justify-content:flex-end; gap:18px; font-size:12.5px; padding-top:8px; border-top:1px solid var(--line); }
+.hr-totals{ display:flex; justify-content:flex-end; gap:18px; font-size:12.5px; padding-top:8px; border-top:1px solid var(--line); flex-wrap:wrap; }
 .hr-totals b{ color:var(--maroon); font-size:14px; }
-.hr-actions{ display:flex; gap:6px; justify-content:flex-end; margin-top:10px; }
+.hr-totals .due-amount { color:var(--danger); }
+.hr-totals .paid-amount { color:var(--success); font-weight:600; }
+.hr-actions{ display:flex; gap:6px; justify-content:flex-end; margin-top:10px; flex-wrap:wrap; }
+
+/* payment badge */
+.pay-badge {
+  display:inline-flex; align-items:center; gap:3px;
+  padding:2px 8px; border-radius:var(--r-pill);
+  font-size:11px; font-weight:600; letter-spacing:.02em;
+  white-space:nowrap;
+}
+.pay-badge.paid { background:var(--success-soft); color:var(--success); }
+.pay-badge.partial { background:var(--saffron-soft); color:#9A6A14; }
+.pay-badge.due { background:var(--danger-soft); color:var(--danger); }
 
 /* ═══════════════ 13. SUMMARY ═══════════════ */
 .summary-view{ max-width:1100px; margin:0 auto; }
@@ -622,6 +661,12 @@ input{ font-family:inherit; font-size:inherit; color:inherit; }
 
   .tc-row{ grid-template-columns:1fr auto; }
   .tc-row .bills{ display:none; }
+
+  .inv-logo-wrap { width:52px; height:52px; }
+  .inv-head-left { gap:10px; }
+  .cart-foot .btn-outline { min-width:76px; padding:0 12px; }
+  .cart-foot .btn-icon-sm { width:44px; }
+  .pay-info { grid-template-columns:1fr 1fr; }
 }
 
 /* ═══════════════ 16. MOTION PREFERENCES ═══════════════ */
