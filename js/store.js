@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Storage layer + GitHub sync (with SHA-based updates)
+   Storage layer + GitHub sync + PDF upload + delete
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -91,21 +91,16 @@
     };
   }
 
-  /** Push (create OR update) a bill. Handles SHA automatically. */
   async function pushBill(bill, settings) {
     settings = settings || getSettings();
     if (!cloudEnabled(settings)) throw new Error("Cloud backup not configured");
     const path = billPath(bill);
     const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
 
-    // Check if exists to get SHA
     let sha = null;
     try {
       const check = await fetch(url, { headers: await ghHeaders(settings) });
-      if (check.ok) {
-        const info = await check.json();
-        sha = info.sha;
-      }
+      if (check.ok) { const info = await check.json(); sha = info.sha; }
     } catch {}
 
     const body = {
@@ -127,6 +122,82 @@
     return res.json();
   }
 
+  /** Upload a PDF blob alongside its JSON bill. */
+  async function pushPDFBlob(bill, blob, settings) {
+    settings = settings || getSettings();
+    if (!cloudEnabled(settings)) throw new Error("Cloud backup not configured");
+    const path = billPath(bill).replace(/\.json$/, ".pdf");
+    const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
+
+    const arrayBuffer = await blob.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    const base64 = btoa(bin);
+
+    let sha = null;
+    try {
+      const check = await fetch(url, { headers: await ghHeaders(settings) });
+      if (check.ok) { const info = await check.json(); sha = info.sha; }
+    } catch {}
+
+    const body = {
+      message: sha ? `Update PDF ${bill.billNo}` : `PDF for bill ${bill.billNo}`,
+      content: base64
+    };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(url, {
+      method: "PUT",
+      headers: await ghHeaders(settings),
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) {
+      let msg = `${res.status} ${res.statusText}`;
+      try { const j = await res.json(); if (j.message) msg = j.message; } catch {}
+      throw new Error(msg);
+    }
+    return res.json();
+  }
+
+  /** Delete a bill (JSON + PDF) from both local archive and GitHub. */
+  async function deleteBill(bill, settings) {
+    settings = settings || getSettings();
+
+    if (cloudEnabled(settings)) {
+      const paths = [
+        billPath(bill),
+        billPath(bill).replace(/\.json$/, ".pdf")
+      ];
+      for (const path of paths) {
+        const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
+        try {
+          const check = await fetch(url, { headers: await ghHeaders(settings) });
+          if (check.status === 404) continue;
+          if (!check.ok) throw new Error(`GitHub ${check.status}`);
+          const info = await check.json();
+          const res = await fetch(url, {
+            method: "DELETE",
+            headers: await ghHeaders(settings),
+            body: JSON.stringify({ message: `Delete ${path}`, sha: info.sha })
+          });
+          if (!res.ok && res.status !== 404) {
+            let msg = `GitHub ${res.status}`;
+            try { const j = await res.json(); if (j.message) msg = j.message; } catch {}
+            throw new Error(msg);
+          }
+        } catch (e) {
+          if (!/404/.test(e.message)) throw e;
+        }
+      }
+    }
+
+    const list = read(K.archive, []).filter(b => b.billNo !== bill.billNo);
+    write(K.archive, list);
+    removeFromOutbox(bill.billNo);
+    return { ok: true };
+  }
+
   async function testConnection(settings) {
     settings = settings || getSettings();
     if (!cloudEnabled(settings)) throw new Error("Fill username, repo and token first");
@@ -139,46 +210,6 @@
       throw new Error(msg);
     }
     return res.json();
-  }
-  /** Delete a bill from both local archive and GitHub. */
-  async function deleteBill(bill, settings) {
-    settings = settings || getSettings();
-
-    // ── Cloud first (safer: if this fails, bill stays intact) ──
-    if (cloudEnabled(settings)) {
-      const path = billPath(bill);
-      const url = `https://api.github.com/repos/${settings.owner}/${settings.repo}/contents/${path}`;
-
-      // 1. Get SHA (required by GitHub DELETE)
-      const check = await fetch(url, { headers: await ghHeaders(settings) });
-      if (check.status === 404) {
-        // already gone from cloud — safe to clean local
-      } else if (!check.ok) {
-        throw new Error(`GitHub ${check.status} — cannot verify bill`);
-      } else {
-        const info = await check.json();
-        const res = await fetch(url, {
-          method: "DELETE",
-          headers: await ghHeaders(settings),
-          body: JSON.stringify({
-            message: `Delete bill ${bill.billNo}`,
-            sha: info.sha
-          })
-        });
-        if (!res.ok) {
-          let msg = `GitHub ${res.status}`;
-          try { const j = await res.json(); if (j.message) msg = j.message; } catch {}
-          throw new Error(msg);
-        }
-      }
-    }
-
-    // ── Local cleanup ──
-    const list = read(K.archive, []).filter(b => b.billNo !== bill.billNo);
-    write(K.archive, list);
-    removeFromOutbox(bill.billNo);
-
-    return { ok: true };
   }
 
   async function flushOutbox(onProgress) {
@@ -201,7 +232,6 @@
     if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
     return res.json();
   }
-
   async function fetchBillFromUrl(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`${res.status}`);
@@ -240,13 +270,13 @@
   const lastSyncAgo = () => { const t = read(K.lastSync, 0); return t ? Date.now() - t : Infinity; };
   const shouldSync = () => cloudEnabled() && lastSyncAgo() > SYNC_TTL_MS;
 
-    window.Store = {
+  window.Store = {
     getSettings, saveSettings, cloudEnabled,
     getDraft, saveDraft, clearDraft,
     peekSeq, commitSeq, makeBillNo,
     archiveBill, mergeArchive, getArchive,
     queueForCloud, getOutbox, removeFromOutbox, flushOutbox,
-    pushBill, deleteBill, testConnection, fetchAllBills,
+    pushBill, pushPDFBlob, deleteBill, testConnection, fetchAllBills,
     shouldSync, lastSyncAgo, billPath
   };
 })();
