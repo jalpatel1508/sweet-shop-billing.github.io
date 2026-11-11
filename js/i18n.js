@@ -6,19 +6,18 @@
 
   const STRINGS = {
     en: {
-      // tabs
       tabBill: "New Bill", tabHistory: "Bills", tabSummary: "Summary",
-      // catalog
       searchItems: "Search item…", all: "All", mithai: "Mithai",
       farsan: "Farsan", dryfruit: "Dryfruit", noItems: "No items found",
-      // cart
       bill: "Bill", customer: "Customer", phone: "Phone",
       optional: "Optional", subtotal: "Subtotal", discount: "Discount",
-      total: "Total", payment: "Payment",
+      total: "Total", payment: "Payment", amountPaid: "Amount Paid",
+      due: "Due", paid: "Paid", fullyPaid: "Fully Paid",
+      partial: "Partial", unpaid: "Unpaid",
       cash: "Cash", upi: "UPI", card: "Card", credit: "Credit",
-      savePdf: "Save + PDF", cartEmpty: "Tap a weight on any item",
+      save: "Save", print: "Print", savePdf: "Save + PDF",
+      cartEmpty: "Tap a weight on any item",
       clearCart: "Clear the current bill?",
-      // history
       historyTitle: "Bills",
       historySearch: "Search: name, phone, 11/11, 'today', 'yesterday'…",
       filterAll: "All", filterToday: "Today", filterYesterday: "Yesterday",
@@ -27,28 +26,27 @@
       syncDone: "Synced", noBills: "No bills found",
       billsFound: n => `${n} bill${n === 1 ? "" : "s"}`,
       items: n => `${n} item${n === 1 ? "" : "s"}`,
-      viewPdf: "PDF", viewPrint: "Print", expand: "Expand",
-      // summary
+      viewPdf: "PDF", viewPrint: "Print",
+      recordPayment: "Record Payment",
+      markFullyPaid: "Mark as Fully Paid",
+      paymentRecorded: "Payment recorded",
+      amountReceivedNow: "Amount received now",
+      alreadyPaid: "Already Paid", savePayment: "Save Payment",
       summaryTitle: "Summary", todaySales: "Today",
       weekSales: "This Week", monthSales: "This Month",
       allTimeSales: "All Time", totalBills: "Total Bills",
       avgBill: "Avg. Bill", monthlyBreakdown: "Month by Month",
       topCustomers: "Top Customers", noData: "No data yet",
-      // settings
-      settings: "Settings", save: "Save", cancel: "Cancel",
+      settings: "Settings", cancel: "Cancel",
       testConnection: "Test connection",
-      // toasts
       billSaved: "Bill saved", billSavedCloud: "Bill saved & backed up",
       cloudPending: "Saved locally, cloud sync pending",
-      syncFailed: "Sync failed",
-      // months (long)
-      months: ["January","February","March","April","May","June",
-               "July","August","September","October","November","December"],
-      // misc
-      loading: "Loading…", error: "Something went wrong",
+      syncFailed: "Sync failed", loading: "Loading…", error: "Something went wrong",
       shopDetails: "Shop details (printed on the bill)",
       cloudBackup: "GitHub cloud backup (optional but recommended)",
-      addComment: "Fine-grained token — Contents: read & write on that repo"
+      logoUrl: "Logo URL",
+      months: ["January","February","March","April","May","June",
+               "July","August","September","October","November","December"]
     },
     gu: {
       tabBill: "નવું બિલ", tabHistory: "બિલ", tabSummary: "સારાંશ",
@@ -56,9 +54,12 @@
       farsan: "ફરસાણ", dryfruit: "ડ્રાયફ્રૂટ", noItems: "કોઈ વસ્તુ મળી નથી",
       bill: "બિલ", customer: "ગ્રાહકનું નામ", phone: "મોબાઈલ",
       optional: "વૈકલ્પિક", subtotal: "પેટા-સરવાળો", discount: "ડિસ્કાઉન્ટ",
-      total: "કુલ", payment: "પેમેન્ટ",
+      total: "કુલ", payment: "પેમેન્ટ", amountPaid: "ચૂકવેલ રકમ",
+      due: "બાકી", paid: "ચૂકવેલ", fullyPaid: "પૂર્ણ ચૂકવેલ",
+      partial: "આંશિક", unpaid: "બાકી",
       cash: "રોકડ", upi: "UPI", card: "કાર્ડ", credit: "ઉધાર",
-      savePdf: "સેવ + PDF", cartEmpty: "ડાબી બાજુથી વસ્તુ ઉમેરો",
+      save: "સેવ", print: "પ્રિન્ટ", savePdf: "સેવ + PDF",
+      cartEmpty: "ડાબી બાજુથી વસ્તુ ઉમેરો",
       clearCart: "બિલ ખાલી કરવું છે?",
       historyTitle: "બિલ",
       historySearch: "શોધો: નામ, ફોન, 11/11, 'આજે', 'ગઈકાલે'…",
@@ -68,23 +69,27 @@
       syncDone: "સિંક થયું", noBills: "કોઈ બિલ મળ્યું નથી",
       billsFound: n => `${n} બિલ`,
       items: n => `${n} વસ્તુ`,
-      viewPdf: "PDF", viewPrint: "પ્રિન્ટ", expand: "ખોલો",
+      viewPdf: "PDF", viewPrint: "પ્રિન્ટ",
+      recordPayment: "ચુકવણી નોંધો",
+      markFullyPaid: "પૂર્ણ ચૂકવેલ તરીકે ચિહ્નિત કરો",
+      paymentRecorded: "ચુકવણી નોંધાઈ",
+      amountReceivedNow: "હવે મળેલ રકમ",
+      alreadyPaid: "પહેલેથી ચૂકવેલ", savePayment: "ચુકવણી સેવ કરો",
       summaryTitle: "સારાંશ", todaySales: "આજે",
       weekSales: "આ અઠવાડિયું", monthSales: "આ મહિનો",
       allTimeSales: "કુલ", totalBills: "કુલ બિલ",
       avgBill: "સરેરાશ બિલ", monthlyBreakdown: "મહિના પ્રમાણે",
       topCustomers: "મુખ્ય ગ્રાહકો", noData: "હજી કોઈ માહિતી નથી",
-      settings: "સેટિંગ્સ", save: "સેવ કરો", cancel: "રદ કરો",
+      settings: "સેટિંગ્સ", cancel: "રદ કરો",
       testConnection: "કનેક્શન ચેક કરો",
       billSaved: "બિલ સેવ થયું", billSavedCloud: "બિલ સેવ થયું અને બેકઅપ થયું",
       cloudPending: "સેવ થયું, ક્લાઉડ સિંક બાકી",
-      syncFailed: "સિંક નિષ્ફળ",
-      months: ["જાન્યુઆરી","ફેબ્રુઆરી","માર્ચ","એપ્રિલ","મે","જૂન",
-               "જુલાઈ","ઓગસ્ટ","સપ્ટેમ્બર","ઓક્ટોબર","નવેમ્બર","ડિસેમ્બર"],
-      loading: "લોડ થાય છે…", error: "ભૂલ આવી",
+      syncFailed: "સિંક નિષ્ફળ", loading: "લોડ થાય છે…", error: "ભૂલ આવી",
       shopDetails: "દુકાનની વિગતો (બિલ પર છપાય છે)",
       cloudBackup: "GitHub ક્લાઉડ બેકઅપ (વૈકલ્પિક પણ સલાહભર્યું)",
-      addComment: "ફાઈન-ગ્રેઈન્ડ ટોકન — Contents: read & write"
+      logoUrl: "લોગો URL",
+      months: ["જાન્યુઆરી","ફેબ્રુઆરી","માર્ચ","એપ્રિલ","મે","જૂન",
+               "જુલાઈ","ઓગસ્ટ","સપ્ટેમ્બર","ઓક્ટોબર","નવેમ્બર","ડિસેમ્બર"]
     }
   };
 
