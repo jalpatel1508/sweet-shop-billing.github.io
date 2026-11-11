@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Storage layer + GitHub sync + PDF upload + delete
+   + runtime token injection (from Auth module)
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -16,14 +17,30 @@
     shopGu: "શ્રી સ્વીટ માર્ટ", shopEn: "Shree Sweet Mart",
     address: "", phone: "", gst: "", footer: "Thank you for your purchase!",
     logoUrl: "1794383228911.png",
-    owner: "", repo: "", token: ""
+    owner: "jalpatel1508", repo: "sweet-shop-data",
+    token: ""
   };
+
+  /* ── runtime token (injected by js/auth.js after decrypt) ── */
+  let runtimeToken = null;
+  const setRuntimeToken = (t) => { runtimeToken = t || null; };
+  const getRuntimeToken = () => runtimeToken;
 
   const read = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
   const write = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { console.error(e); return false; } };
 
-  const getSettings = () => Object.assign({}, DEFAULT_SETTINGS, read(K.settings, {}));
-  const saveSettings = s => write(K.settings, s);
+  const getSettings = () => {
+    const s = Object.assign({}, DEFAULT_SETTINGS, read(K.settings, {}));
+    // Prefer the runtime-decrypted token over whatever is in plain localStorage
+    if (runtimeToken) s.token = runtimeToken;
+    return s;
+  };
+  const saveSettings = s => {
+    // Never persist the plain token to localStorage — it lives encrypted in Auth
+    const copy = { ...s };
+    if (runtimeToken) copy.token = "";
+    write(K.settings, copy);
+  };
   const cloudEnabled = s => {
     s = s || getSettings();
     return !!(s.owner && s.repo && s.token);
@@ -41,6 +58,7 @@
   const makeBillNo = (dateISO, seq) =>
     `${dateISO.replace(/-/g, "")}-${String(seq).padStart(3, "0")}`;
 
+  /* ── archive ───────────────────────────────────────────── */
   const getArchive = () => read(K.archive, []);
   function archiveBill(bill) {
     let list = read(K.archive, []);
@@ -63,6 +81,7 @@
     return list.slice(0, ARCHIVE_MAX);
   }
 
+  /* ── outbox ────────────────────────────────────────────── */
   function queueForCloud(bill) {
     const q = read(K.outbox, []);
     if (!q.some(b => b.billNo === bill.billNo)) q.push(bill);
@@ -73,6 +92,7 @@
   const removeFromOutbox = bn =>
     write(K.outbox, getOutbox().filter(b => b.billNo !== bn));
 
+  /* ── GitHub helpers ────────────────────────────────────── */
   const utf8ToBase64 = str => {
     const bytes = new TextEncoder().encode(str);
     let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -270,8 +290,10 @@
   const lastSyncAgo = () => { const t = read(K.lastSync, 0); return t ? Date.now() - t : Infinity; };
   const shouldSync = () => cloudEnabled() && lastSyncAgo() > SYNC_TTL_MS;
 
+  /* ── expose ────────────────────────────────────────────── */
   window.Store = {
     getSettings, saveSettings, cloudEnabled,
+    setRuntimeToken, getRuntimeToken,
     getDraft, saveDraft, clearDraft,
     peekSeq, commitSeq, makeBillNo,
     archiveBill, mergeArchive, getArchive,
