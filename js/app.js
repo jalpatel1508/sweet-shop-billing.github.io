@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   App — bill tab, cart, tabs, i18n wiring
+   App — bill tab, cart, tabs, i18n, save with PDF upload
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -37,7 +37,6 @@
     return { subtotal, discount, total: round2(subtotal - discount) };
   }
 
-  /** Compute paid / due from the amountPaid input (empty = fully paid). */
   function computePayment() {
     const t = totals();
     const raw = String($("#amountPaid")?.value || "").trim();
@@ -171,15 +170,12 @@
     $("#cartCount").textContent = count;
     $("#cartTotalMini").textContent = money(t.total);
 
-    // Due display
     const pay = computePayment();
     const dueRow = $("#dueRow");
     if (state.cart.length && pay.due > 0) {
       dueRow.hidden = false;
       $("#dueVal").textContent = money(pay.due);
-    } else {
-      dueRow.hidden = true;
-    }
+    } else dueRow.hidden = true;
 
     $$(".item-card").forEach(c => {
       const id = Number(c.dataset.item);
@@ -207,10 +203,9 @@
         };
       }),
       subtotal: t.subtotal, discount: t.discount, total: t.total,
-      amountPaid: pay.paid,
-      amountDue: pay.due,
+      amountPaid: pay.paid, amountDue: pay.due,
       paymentStatus: pay.due === 0 ? "paid" : (pay.paid > 0 ? "partial" : "due"),
-      paymentMode: state.payment, createdAt: new Date().toISOString(), appVersion: "2.1.0"
+      paymentMode: state.payment, createdAt: new Date().toISOString(), appVersion: "2.2.0"
     };
   }
 
@@ -222,12 +217,31 @@
       const bill = buildBill();
       Store.archiveBill(bill);
       Store.commitSeq(state.date);
-      try { await Invoice.downloadPDF(bill, settings); }
-      catch (e) { toast("PDF failed (bill still saved)", "err"); }
+
+      // Generate PDF once
+      let pdfBlob = null;
+      try { pdfBlob = await Invoice.generatePDFBlob(bill, settings); }
+      catch (e) { console.error("PDF generation failed:", e); toast("PDF failed (bill still saved)", "err"); }
+
+      // Download for user
+      if (pdfBlob) {
+        try { Invoice.downloadBlob(pdfBlob, `Bill-${bill.billNo}.pdf`); }
+        catch (e) { console.warn("PDF download failed:", e); }
+      }
+
+      // Cloud sync
       if (Store.cloudEnabled(settings)) {
         try {
           await Store.pushBill(bill, settings);
-          toast(I18N.t("billSavedCloud"), "ok");
+          if (pdfBlob) {
+            try {
+              await Store.pushPDFBlob(bill, pdfBlob, settings);
+              toast(I18N.t("billSavedCloud"), "ok");
+            } catch (pdfErr) {
+              console.warn("PDF upload failed:", pdfErr);
+              toast(I18N.t("billSavedCloud") + " (PDF pending)", "info", 4200);
+            }
+          } else toast(I18N.t("billSavedCloud"), "ok");
           setSyncState("ok", "Cloud backup active");
         } catch (e) {
           Store.queueForCloud(bill);
@@ -235,6 +249,7 @@
           setSyncState("pending", e.message);
         }
       } else toast(I18N.t("billSaved"), "ok");
+
       clearBill(true); renderCatalog();
       if (state.activeTab === "history") HistoryView.render();
       if (state.activeTab === "summary") SummaryView.render();
@@ -309,18 +324,15 @@
     toast(I18N.t("save"), "ok"); refreshSyncState();
     Store.flushOutbox().then(r => { if (r.ok) refreshSyncState(); });
   }
-    function applyShopToHeader() {
+  function applyShopToHeader() {
     const name = I18N.lang === "gu" ? (settings.shopGu || settings.shopEn) : (settings.shopEn || settings.shopGu);
     $("#shopNameDisplay").textContent = name || "Billing";
-
-    // Circular logo in the header (falls back to shop-initial if image fails)
     const brandMark = $("#brandMark");
     const fallbackLetter = (name || "S").trim().charAt(0).toUpperCase();
     const logoUrl = (settings.logoUrl || "").trim() || "1794383228911.png";
     brandMark.innerHTML =
       `<img src="${logoUrl}" alt="" class="brand-logo"` +
       ` onerror="this.remove(); this.parentElement.textContent='${fallbackLetter}';">`;
-
     const meta = [I18N.lang === "gu" ? settings.shopEn : settings.shopGu, settings.phone].filter(Boolean).join(" · ") || "Billing";
     $("#shopMetaDisplay").textContent = meta;
     document.title = `${name || "Billing"}`;
@@ -392,19 +404,15 @@
       state.customer.phone = e.target.value; persistDraft();
     });
     $("#discount").addEventListener("input", e => {
-      state.discount = Number(e.target.value) || 0; persistDraft();
-      renderCart();
+      state.discount = Number(e.target.value) || 0; persistDraft(); renderCart();
     });
     $("#amountPaid").addEventListener("input", () => {
       persistDraft();
       const pay = computePayment();
       const dueRow = $("#dueRow");
       if (state.cart.length && pay.due > 0) {
-        dueRow.hidden = false;
-        $("#dueVal").textContent = money(pay.due);
-      } else {
-        dueRow.hidden = true;
-      }
+        dueRow.hidden = false; $("#dueVal").textContent = money(pay.due);
+      } else dueRow.hidden = true;
     });
     $("#payPills").addEventListener("click", e => {
       const p = e.target.closest(".pill"); if (!p) return;
@@ -440,16 +448,12 @@
       if (e.key === "3") switchTab("summary");
     });
     window.addEventListener("online", () => {
-      Store.flushOutbox().then(r => {
-        if (r.ok) { refreshSyncState(); toast("Synced", "ok"); }
-      });
+      Store.flushOutbox().then(r => { if (r.ok) { refreshSyncState(); toast("Synced", "ok"); } });
     });
   }
 
   function boot() {
-    applyLanguage();
-    applyShopToHeader();
-
+    applyLanguage(); applyShopToHeader();
     if (restoreDraft()) {
       $("#custName").value = state.customer.name;
       $("#custPhone").value = state.customer.phone;
