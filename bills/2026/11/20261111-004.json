@@ -1,0 +1,140 @@
+{
+  "billNo": "20261111-004",
+  "date": "2026-11-11",
+  "time": "15:41",
+  "customer": {
+    "name": "",
+    "phone": ""
+  },
+  "items": [
+    {
+      "itemId": 1,
+      "gu": "પ્રિમિયમ મોહનથાળ",
+      "en": "Premium Mohanthal",
+      "grams": 500,
+      "weightLabel": "500 g",
+      "qty": 1,
+      "unitPrice": 220,
+      "amount": 220
+    },
+    {
+      "itemId": 4,
+      "gu": "કેસર કાલાજામ",
+      "en": "Kesar Kalajam",
+      "grams": 500,
+      "weightLabel": "500 g",
+      "qty": 1,
+      "unitPrice": 260,
+      "amount": 260
+    },
+    {
+      "itemId": 5,
+      "gu": "સોનપાપડી",
+      "en": "Sonpapdi",
+      "grams": 500,
+      "weightLabel": "500 g",
+      "qty": 1,
+      "unitPrice": 260,
+      "amount": 260
+    },
+    {
+      "itemId": 6,
+      "gu": "કેસર મોતીચુર લડ્ડુ",
+      "en": "Kesar Motichur Ladoo",
+      "grams": 250,
+      "weightLabel": "250 g",
+      "qty": 1,
+      "unitPrice": 130,
+      "amount": 130
+    },
+    {
+      "itemId": 9,
+      "gu": "પીસ્તા બરફી",
+      "en": "Pista Barfi",
+      "grams": 250,
+      "weightLabel": "250 g",
+      "qty": 1,
+      "unitPrice": 130,
+      "amount": 130
+    },
+    {
+      "itemId": 8,
+      "gu": "અખરોટ બરફી",
+      "en": "Akhrot Barfi",
+      "grams": 500,
+      "weightLabel": "500 g",
+      "qty": 1,
+      "unitPrice": 260,
+      "amount": 260
+    },
+    {
+      "itemId": 11,
+      "gu": "કેસર બરફી",
+      "en": "Kesar Barfi",
+      "grams": 250,
+      "weightLabel": "250 g",
+      "qty": 1,
+      "unitPrice": 130,
+      "amount": 130
+    },
+    {
+      "itemId": 15,
+      "gu": "પતીસા",
+      "en": "Patisa",
+      "grams": 250,
+      "weightLabel": "250 g",
+      "qty": 1,
+      "unitPrice": 140,
+      "amount": 140
+    },
+    {
+      "itemId": 19,
+      "gu": "તીખી સેવ",
+      "en": "Tikhi Sev",
+      "grams": 500,
+      "weightLabel": "500 g",
+      "qty": 1,
+      "unitPrice": 140,
+      "amount": 140
+    },
+    {
+      "itemId": 18,
+      "gu": "ગાંઠીયા",
+      "en": "Gathiya",
+      "grams": 250,
+      "weightLabel": "250 g",
+      "qty": 1,
+      "unitPrice": 70,
+      "amount": 70
+    },
+    {
+      "itemId": 17,
+      "gu": "ફુલવડી",
+      "en": "Fulvadi",
+      "grams": 250,
+      "weightLabel": "250 g",
+      "qty": 1,
+      "unitPrice": 70,
+      "amount": 70
+    },
+    {
+      "itemId": 20,
+      "gu": "ઝીણી સેવ",
+      "en": "Zini Sev",
+      "grams": 100,
+      "weightLabel": "100 g",
+      "qty": 1,
+      "unitPrice": 28,
+      "amount": 28
+    }
+  ],
+  "subtotal": 1838,
+  "discount": 0,
+  "total": 1838,
+  "amountPaid": 1838,
+  "amountDue": 0,
+  "paymentStatus": "paid",
+  "paymentMode": "Cash",
+  "createdAt": "2026-11-11T10:11:33.837Z",
+  "appVersion": "2.1.0"
+}
