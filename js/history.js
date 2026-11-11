@@ -245,10 +245,11 @@
         const bn = actionBtn.dataset.bill;
         const bill = Store.getArchive().find(b => b.billNo === bn);
         if (!bill) return;
-        const act = actionBtn.dataset.action;
+                const act = actionBtn.dataset.action;
         if (act === "pdf") Invoice.downloadPDF(bill, Store.getSettings());
         else if (act === "print") Invoice.print(bill, Store.getSettings());
         else if (act === "pay") openPaymentModal(bn);
+        else if (act === "delete") handleDelete(bn);
         return;
       }
       const row = e.target.closest(".history-row"); if (!row) return;
