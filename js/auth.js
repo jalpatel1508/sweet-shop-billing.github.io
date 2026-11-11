@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Auth & Secure Storage — Firebase Google Sign-In
-   + browserPopupRedirectResolver workaround
+   + Firestore Cloud Sync
    ═══════════════════════════════════════════════════════════ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -11,6 +11,13 @@ import {
   onAuthStateChanged,
   browserPopupRedirectResolver
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+// NEW: Import Firestore
+import { 
+  getFirestore, 
+  doc, 
+  getDoc, 
+  setDoc 
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ── 1. YOUR FIREBASE CONFIG ────────────────────────────── */
 const firebaseConfig = {
@@ -27,9 +34,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const db = getFirestore(app); // NEW: Initialize Firestore
 
-/* ── 3. ENCRYPTION HELPERS (Web Crypto API) ─────────────── */
-// Derives an AES-GCM key from the user's Google UID.
+/* ── 3. ENCRYPTION HELPERS ──────────────────────────────── */
 async function deriveKey(userId) {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -75,7 +82,7 @@ async function decryptData(encoded, key) {
     );
     return new TextDecoder().decode(decrypted);
   } catch {
-    return null; // Decryption failed (wrong key or corrupt data)
+    return null;
   }
 }
 
@@ -86,14 +93,29 @@ window.Auth = {
   user: null,
   token: null,
 
-  /** Called on page load. Returns a promise that resolves when auth state is known. */
   init() {
     return new Promise(resolve => {
       onAuthStateChanged(auth, async (user) => {
         this.user = user;
         if (user) {
-          // Try to restore the encrypted GitHub token
-          const stored = localStorage.getItem(STORAGE_KEY);
+          // 1. Try local storage first
+          let stored = localStorage.getItem(STORAGE_KEY);
+          
+          // 2. If not found locally, try Firestore (new device login)
+          if (!stored) {
+            try {
+              const docRef = doc(db, "users", user.uid);
+              const docSnap = await getDoc(docRef);
+              if (docSnap.exists() && docSnap.data().encryptedToken) {
+                stored = docSnap.data().encryptedToken;
+                localStorage.setItem(STORAGE_KEY, stored); // Cache it locally
+              }
+            } catch (e) { 
+              console.error("Firestore fetch failed:", e); 
+            }
+          }
+
+          // 3. Decrypt and load the token
           if (stored) {
             const key = await deriveKey(user.uid);
             this.token = await decryptData(stored, key);
@@ -104,7 +126,6 @@ window.Auth = {
     });
   },
 
-  /** Open the Google sign-in popup. */
   async signIn() {
     try {
       const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
@@ -116,7 +137,6 @@ window.Auth = {
     }
   },
 
-  /** Sign out and clear the stored token. */
   async signOut() {
     await signOut(auth);
     this.user = null;
@@ -124,21 +144,30 @@ window.Auth = {
     localStorage.removeItem(STORAGE_KEY);
   },
 
-  /** Save the GitHub token (encrypts it with the user's UID). */
   async saveToken(rawToken) {
     if (!this.user) throw new Error("Not signed in.");
     const key = await deriveKey(this.user.uid);
     const encrypted = await encryptData(rawToken, key);
+    
+    // 1. Save locally
     localStorage.setItem(STORAGE_KEY, encrypted);
     this.token = rawToken;
+
+    // 2. Save to Firestore Cloud
+    try {
+      await setDoc(doc(db, "users", this.user.uid), { 
+        encryptedToken: encrypted,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+    } catch (e) {
+      console.warn("Could not sync token to cloud:", e);
+    }
   },
 
-  /** Check if a token is already saved on this device. */
   hasToken() {
     return !!this.token;
   },
 
-  /** Get the decrypted token. */
   getToken() {
     return this.token;
   }
