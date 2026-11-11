@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Auth & Secure Storage — Firebase Google Sign-In
+   + browserPopupRedirectResolver workaround
    ═══════════════════════════════════════════════════════════ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
@@ -7,10 +8,11 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  browserPopupRedirectResolver
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-/* ── 1. YOUR FIREBASE CONFIG (PASTE HERE) ───────────────── */
+/* ── 1. YOUR FIREBASE CONFIG ────────────────────────────── */
 const firebaseConfig = {
   apiKey: "AIzaSyBAyKDC-JGUYhrpfXryBEkhsj30y8YHTqw",
   authDomain: "new-rahat-sanitary.firebaseapp.com",
@@ -18,7 +20,7 @@ const firebaseConfig = {
   storageBucket: "new-rahat-sanitary.firebasestorage.app",
   messagingSenderId: "30366197365",
   appId: "1:30366197365:web:0b5a8cd1b660c79e1d7a3c",
-   measurementId: "G-J92BMR956V"
+  measurementId: "G-J92BMR956V"
 };
 
 /* ── 2. INITIALIZE ──────────────────────────────────────── */
@@ -105,7 +107,7 @@ window.Auth = {
   /** Open the Google sign-in popup. */
   async signIn() {
     try {
-      const result = await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider, browserPopupRedirectResolver);
       this.user = result.user;
       return result.user;
     } catch (err) {
