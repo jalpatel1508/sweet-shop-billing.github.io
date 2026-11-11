@@ -6,10 +6,6 @@
 
   const STRINGS = {
     en: {
-             deleteBill: "Delete",
-      confirmDelete: "Delete this bill? This cannot be undone.",
-      billDeleted: "Bill deleted",
-      deleteFailed: "Delete failed",
       tabBill: "New Bill", tabHistory: "Bills", tabSummary: "Summary",
       searchItems: "Search item…", all: "All", mithai: "Mithai",
       farsan: "Farsan", dryfruit: "Dryfruit", noItems: "No items found",
@@ -36,6 +32,10 @@
       paymentRecorded: "Payment recorded",
       amountReceivedNow: "Amount received now",
       alreadyPaid: "Already Paid", savePayment: "Save Payment",
+      deleteBill: "Delete",
+      confirmDelete: "Delete this bill? This cannot be undone.",
+      billDeleted: "Bill deleted",
+      deleteFailed: "Delete failed",
       summaryTitle: "Summary", todaySales: "Today",
       weekSales: "This Week", monthSales: "This Month",
       allTimeSales: "All Time", totalBills: "Total Bills",
@@ -53,10 +53,6 @@
                "July","August","September","October","November","December"]
     },
     gu: {
-             deleteBill: "ડિલીટ",
-      confirmDelete: "આ બિલ ડિલીટ કરવું છે? આ પાછું નહીં આવે.",
-      billDeleted: "બિલ ડિલીટ થયું",
-      deleteFailed: "ડિલીટ નિષ્ફળ",
       tabBill: "નવું બિલ", tabHistory: "બિલ", tabSummary: "સારાંશ",
       searchItems: "વસ્તુ શોધો…", all: "બધું", mithai: "મિઠાઈ",
       farsan: "ફરસાણ", dryfruit: "ડ્રાયફ્રૂટ", noItems: "કોઈ વસ્તુ મળી નથી",
@@ -83,6 +79,10 @@
       paymentRecorded: "ચુકવણી નોંધાઈ",
       amountReceivedNow: "હવે મળેલ રકમ",
       alreadyPaid: "પહેલેથી ચૂકવેલ", savePayment: "ચુકવણી સેવ કરો",
+      deleteBill: "ડિલીટ",
+      confirmDelete: "આ બિલ ડિલીટ કરવું છે? આ પાછું નહીં આવે.",
+      billDeleted: "બિલ ડિલીટ થયું",
+      deleteFailed: "ડિલીટ નિષ્ફળ",
       summaryTitle: "સારાંશ", todaySales: "આજે",
       weekSales: "આ અઠવાડિયું", monthSales: "આ મહિનો",
       allTimeSales: "કુલ", totalBills: "કુલ બિલ",
@@ -128,9 +128,6 @@
     });
     document.querySelectorAll("[data-i18n-ph]").forEach(el => {
       el.placeholder = I18N.t(el.dataset.i18nPh);
-    });
-    document.querySelectorAll("[data-i18n-title]").forEach(el => {
-      el.title = I18N.t(el.dataset.i18nTitle);
     });
     const toggleBtn = document.getElementById("langToggle");
     if (toggleBtn) toggleBtn.textContent = current === "en" ? "ગુ" : "EN";
