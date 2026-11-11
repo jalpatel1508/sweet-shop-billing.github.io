@@ -13,7 +13,7 @@ import {
 /* ── 1. YOUR FIREBASE CONFIG (PASTE HERE) ───────────────── */
 const firebaseConfig = {
   apiKey: "AIzaSyBAyKDC-JGUYhrpfXryBEkhsj30y8YHTqw",
-  authDomain: "https://new-rahat-sanitary.firebaseapp.com",
+  authDomain: "new-rahat-sanitary.firebaseapp.com",
   projectId: "new-rahat-sanitary",
   storageBucket: "https://new-rahat-sanitary.firebasestorage.app",
   messagingSenderId: "30366197365",
