@@ -14,7 +14,9 @@
 
 <header class="app-header">
   <div class="brand">
-        <div class="brand-mark" id="brandMark"><img src="1794383228911.png" alt="" class="brand-logo"></div>
+    <div class="brand-mark" id="brandMark">
+      <img src="1794383228911.png" alt="" class="brand-logo">
+    </div>
     <div class="brand-text">
       <h1 id="shopNameDisplay">Shree Sweet Mart</h1>
       <p id="shopMetaDisplay">Billing</p>
@@ -39,6 +41,7 @@
 
 <main class="app-shell">
 
+  <!-- BILL TAB -->
   <section class="tab-view" data-view="bill">
     <div class="bill-layout">
       <section class="catalog" aria-label="Item catalog">
@@ -113,6 +116,7 @@
     </div>
   </section>
 
+  <!-- HISTORY TAB -->
   <section class="tab-view" data-view="history" hidden>
     <div class="history-view">
       <div class="view-head">
@@ -138,6 +142,7 @@
     </div>
   </section>
 
+  <!-- SUMMARY TAB -->
   <section class="tab-view" data-view="summary" hidden>
     <div class="summary-view">
       <div class="view-head">
@@ -179,7 +184,7 @@
       <h3 class="section-label" data-i18n="cloudBackup">GitHub cloud backup</h3>
       <div class="field-grid">
         <label class="field"><span>GitHub username</span><input id="setOwner"></label>
-        <label class="field"><span>Repository</span><input id="setRepo"></label>
+        <label class="field"><span>Repository</span><input id="setRepo" placeholder="sweet-shop-data"></label>
       </div>
       <label class="field"><span>Fine-grained token</span><input id="setToken" type="password" autocomplete="off"></label>
       <div class="settings-status" id="settingsStatus"></div>
