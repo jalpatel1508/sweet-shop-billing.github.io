@@ -1,0 +1,57 @@
+{
+  "billNo": "20261111-003",
+  "date": "2026-11-11",
+  "time": "14:47",
+  "customer": {
+    "name": "",
+    "phone": ""
+  },
+  "items": [
+    {
+      "itemId": 1,
+      "gu": "પ્રિમિયમ મોહનથાળ",
+      "en": "Premium Mohanthal",
+      "grams": 500,
+      "weightLabel": "500 ગ્રામ",
+      "qty": 1,
+      "unitPrice": 220,
+      "amount": 220
+    },
+    {
+      "itemId": 2,
+      "gu": "મગદળ",
+      "en": "Magdal",
+      "grams": 500,
+      "weightLabel": "500 ગ્રામ",
+      "qty": 1,
+      "unitPrice": 220,
+      "amount": 220
+    },
+    {
+      "itemId": 2,
+      "gu": "મગદળ",
+      "en": "Magdal",
+      "grams": 250,
+      "weightLabel": "250 ગ્રામ",
+      "qty": 1,
+      "unitPrice": 110,
+      "amount": 110
+    },
+    {
+      "itemId": 6,
+      "gu": "કેસર મોતીચુર લડ્ડુ",
+      "en": "Kesar Motichur Ladoo",
+      "grams": 100,
+      "weightLabel": "100 ગ્રામ",
+      "qty": 1,
+      "unitPrice": 52,
+      "amount": 52
+    }
+  ],
+  "subtotal": 602,
+  "discount": 0,
+  "total": 602,
+  "paymentMode": "Cash",
+  "createdAt": "2026-11-11T09:17:10.610Z",
+  "appVersion": "1.0.0"
+}
