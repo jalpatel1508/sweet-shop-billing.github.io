@@ -1,6 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Invoice rendering + PDF + print (auto-height A5-width)
-   + generatePDFBlob / downloadBlob for cloud upload
+   Invoice rendering + PDF (auto-height) + print
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -42,7 +41,6 @@
     return `${d}-${m}-${y}`;
   }
 
-  /* ── invoice HTML (unchanged, no logo) ─────────────────── */
   function buildHTML(bill, shop) {
     const rows = bill.items.map((it, i) => `
       <tr>
@@ -146,83 +144,57 @@
     } catch {}
   }
 
-  /* ── measure the rendered invoice and return mm height ─── */
   function measureHeightMm(el) {
     const px = el.scrollHeight;
     const mm = px * 25.4 / 96;
     return Math.ceil(mm) + 2;
   }
 
-  /* ═════════════════════════════════════════════════════════
-     NEW: generate PDF as a Blob (no download)
-     ═════════════════════════════════════════════════════════ */
   async function generatePDFBlob(bill, shop) {
     if (!window.html2canvas || !window.jspdf) throw new Error("PDF library not loaded");
-
     const el = render(bill, shop);
     await fontsReady();
     await new Promise(r => setTimeout(r, 60));
 
     const A5_WIDTH_MM = 148;
     const heightMm = measureHeightMm(el);
-
     const MAX_CANVAS_PX = 12000;
     const scale = Math.max(1.5, Math.min(3, MAX_CANVAS_PX / el.scrollHeight));
 
     const canvas = await html2canvas(el, {
-      scale,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      logging: false,
-      windowWidth: el.scrollWidth,
-      windowHeight: el.scrollHeight
+      scale, backgroundColor: "#ffffff", useCORS: true, logging: false,
+      windowWidth: el.scrollWidth, windowHeight: el.scrollHeight
     });
 
     const { jsPDF } = window.jspdf;
     const pdf = new jsPDF({
-      unit: "mm",
-      format: [A5_WIDTH_MM, heightMm],
-      orientation: "portrait"
+      unit: "mm", format: [A5_WIDTH_MM, heightMm], orientation: "portrait"
     });
 
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
-
     pdf.addImage(canvas.toDataURL("image/jpeg", 0.94), "JPEG", 0, 0, pw, ph);
-
     return pdf.output("blob");
   }
 
-  /* ═════════════════════════════════════════════════════════
-     NEW: trigger a browser download for any Blob
-     ═════════════════════════════════════════════════════════ */
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
+    a.href = url; a.download = filename;
     document.body.appendChild(a);
-    a.click();
-    a.remove();
+    a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1500);
   }
 
-  /* ═════════════════════════════════════════════════════════
-     downloadPDF — now a thin wrapper over the two above
-     ═════════════════════════════════════════════════════════ */
   async function downloadPDF(bill, shop) {
     const blob = await generatePDFBlob(bill, shop);
     downloadBlob(blob, `Bill-${bill.billNo}.pdf`);
   }
 
-  /* ═════════════════════════════════════════════════════════
-     PRINT — auto-height via dynamically injected @page
-     ═════════════════════════════════════════════════════════ */
   async function print(bill, shop) {
     render(bill, shop);
     await fontsReady();
     await new Promise(r => setTimeout(r, 80));
-
     const el = document.getElementById("invoice");
     const A5_WIDTH_MM = 148;
     const heightMm = measureHeightMm(el);
@@ -233,11 +205,9 @@
       styleEl.id = "dynamic-print-page";
       document.head.appendChild(styleEl);
     }
-    styleEl.textContent =
-      `@media print { @page { size: ${A5_WIDTH_MM}mm ${heightMm}mm; margin: 0; } }`;
+    styleEl.textContent = `@media print { @page { size: ${A5_WIDTH_MM}mm ${heightMm}mm; margin: 0; } }`;
 
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
     window.print();
   }
 
