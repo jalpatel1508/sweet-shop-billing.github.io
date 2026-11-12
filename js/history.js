@@ -1,5 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    Bills history + search + payment recording + delete
+   + auto PDF regeneration on payment update
    ═══════════════════════════════════════════════════════════ */
 (function () {
   "use strict";
@@ -85,6 +86,7 @@
     if (!status) status = due === 0 ? "paid" : (paid > 0 ? "partial" : "due");
     return { paid, due, status };
   }
+
   function paymentBadge(bill) {
     const p = paymentOf(bill);
     if (p.status === "paid" || p.due === 0) return `<span class="pay-badge paid" title="Fully paid">✓ ${I18N.t("paid")}</span>`;
@@ -178,6 +180,7 @@
     setTimeout(() => $("#payAmount").focus(), 50);
   }
   function closePaymentModal() { $("#paymentModal").hidden = true; currentPayBill = null; }
+  
   async function savePayment() {
     if (!currentPayBill) return;
     const amt = Number($("#payAmount").value) || 0;
@@ -185,6 +188,7 @@
     await recordPayment(currentPayBill, amt);
     closePaymentModal();
   }
+
   async function recordPayment(bill, amount) {
     const p = paymentOf(bill);
     const newPaid = Math.min(bill.total, p.paid + amount);
@@ -199,15 +203,28 @@
     const settings = Store.getSettings();
     if (Store.cloudEnabled(settings)) {
       try {
+        // 1. Update the JSON on GitHub
         await Store.pushBill(bill, settings);
+        
+        // 2. Regenerate the PDF and update it on GitHub
+        try {
+          const pdfBlob = await Invoice.generatePDFBlob(bill, settings);
+          await Store.pushPDFBlob(bill, pdfBlob, settings);
+        } catch (pdfErr) {
+          console.warn("Could not update PDF on GitHub:", pdfErr);
+        }
+
         App.toast(I18N.t("paymentRecorded") + " · synced", "ok");
       } catch (e) {
         Store.queueForCloud(bill);
         App.toast(I18N.t("paymentRecorded") + " (cloud pending)", "info");
       }
-    } else App.toast(I18N.t("paymentRecorded"), "ok");
+    } else {
+      App.toast(I18N.t("paymentRecorded"), "ok");
+    }
 
-    renderList(); App.refreshSyncState();
+    renderList(); 
+    App.refreshSyncState();
   }
 
   /* delete */
@@ -302,6 +319,7 @@
       btn.disabled = false; btn.textContent = original;
     }
   }
+
   async function maybeAutoSync() {
     if (!Store.shouldSync()) return;
     try {
